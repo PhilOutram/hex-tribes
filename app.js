@@ -1,11 +1,11 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.01";
+import { VERSION, CHANGELOG } from "./version.js?v=0.02";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   SUPER_UNIT_MAX_HP, START_STARS_PER_GO, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST,
   RUIN_MAX_BUILDING_COST, RUIN_STARS, RUIN_OUTCOMES,
-} from "./game.js?v=0.01";
+} from "./game.js?v=0.02";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -57,6 +57,7 @@ const ROLL_FRAME_MS = 70;
 const PIP_SPOTS = [[4], [0, 8], [0, 4, 8], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
 const DIE_SPOTS = 9;
 const TOAST_MS = 2200;
+const TOAST_ACTION_MS = 5000;
 
 // Every research skill by key, with its parent (inner ring skills have none) and cost.
 const NODES = {};
@@ -77,6 +78,7 @@ const pageEls = [...pages.querySelectorAll(".page")];
 let currentPage = Math.min(state.page, pageEls.length - 1);
 let toastTimer = 0;
 let rolling = false;
+let bannerStars = state.stars;
 
 applyTribe();
 renderTabs();
@@ -87,7 +89,7 @@ renderUnits();
 renderRuins();
 renderTracker();
 renderCities();
-renderStarChip();
+renderBanner();
 renderVersionBadge(document.body, "version-badge splash-version");
 renderVersionBadge(document.getElementById("home-version"), "version-badge inline");
 
@@ -97,7 +99,11 @@ document.addEventListener("keydown", (e) => {
   if (!splash.hidden && !e.repeat) showApp();
 });
 document.getElementById("home").addEventListener("click", showSplash);
-document.getElementById("star-chip").addEventListener("click", () => goToPage(TRACKER_PAGE));
+document.getElementById("star-banner").addEventListener("click", () => goToPage(TRACKER_PAGE));
+document.getElementById("building-list").addEventListener("click", (e) => {
+  buyFrom(e, BUILDINGS, "Built");
+});
+document.getElementById("unit-list").addEventListener("click", (e) => buyFrom(e, UNITS, "Trained"));
 document.getElementById("new-game").addEventListener("click", newGame);
 
 pages.addEventListener("scroll", () => requestAnimationFrame(syncPageFromScroll), {
@@ -201,6 +207,7 @@ function setCurrentPage(index) {
 
 function applyTribe() {
   document.documentElement.style.setProperty("--tribe", tribe().colour);
+  document.documentElement.style.setProperty("--tribe-ink", tribe().ink);
 }
 
 function renderTribes() {
@@ -229,8 +236,9 @@ function newGame() {
   const keep = { tribe: state.tribe, page: state.page };
   Object.assign(state, defaultState(), keep);
   saveState();
-  renderAfterResearch();
-  renderTrackerAndChip();
+  bannerStars = state.stars;
+  renderTree();
+  renderStars();
   toast("New game started");
 }
 
@@ -322,24 +330,22 @@ function toggleResearch(key) {
     const also = children.length
       ? ` This also undoes ${children.map((c) => c.name).join(", ")}.`
       : "";
-    if (!confirm(`Undo ${node.name}?${also}`)) return;
+    const refund = node.cost + children.length * OUTER_COST;
+    if (!confirm(`Undo ${node.name}?${also} You get ${refund} ★ back.`)) return;
     const drop = [key, ...children.map((c) => c.key)];
     state.researched = state.researched.filter((k) => !drop.includes(k));
+    state.stars += refund;
   } else if (node.parent && !isResearched(node.parent)) {
     toast(`Research ${NODES[node.parent].name} first`);
     return;
   } else {
+    if (!spend(node.cost, node.name)) return;
     state.researched.push(key);
-    toast(`${node.name} researched - ${node.cost} ★`);
+    toast(`${node.name} researched: −${node.cost} ★`);
   }
   saveState();
-  renderAfterResearch();
-}
-
-function renderAfterResearch() {
   renderTree();
-  renderBuildings();
-  renderUnits();
+  renderStars();
 }
 
 // ---------- Buildings and units ----------
@@ -355,9 +361,34 @@ function isLocked(research) {
   return research !== null && !isResearched(research);
 }
 
+// Build / Train button for an unlocked card, dimmed when you can't afford it yet.
+function buyButton(item, index, verb) {
+  if (isLocked(item.research) || item.cost === null) return "";
+  const short = state.stars < item.cost ? " short" : "";
+  return (
+    `<button type="button" class="buy${short}" data-buy="${index}">` +
+    `${verb} &middot; ${item.cost} ★</button>`
+  );
+}
+
+function buyFrom(e, items, done) {
+  const btn = e.target.closest(".buy");
+  if (!btn) return;
+  const item = items[Number(btn.dataset.buy)];
+  if (!spend(item.cost, item.name)) return;
+  saveState();
+  renderStars();
+  toast(`${done} ${item.name}: −${item.cost} ★`, "Undo", () => {
+    state.stars += item.cost;
+    saveState();
+    renderStars();
+    toast(`${item.name} undone: +${item.cost} ★`);
+  });
+}
+
 function renderBuildings() {
   document.getElementById("building-list").innerHTML = BUILDINGS.map(
-    (b) =>
+    (b, i) =>
       `<article class="card${isLocked(b.research) ? " locked" : ""}">` +
       `<div class="art" aria-hidden="true">${b.icon}</div>` +
       `<div class="info"><h3>${b.name}</h3>${unlockChip(b.research)}` +
@@ -365,12 +396,12 @@ function renderBuildings() {
       `<div class="stat"><dt>Cost</dt><dd>${b.cost} ★</dd></div>` +
       `<div class="stat wide"><dt>Terrain</dt><dd>${b.terrain}</dd></div>` +
       `<div class="stat full"><dt>Population</dt><dd>${b.pop}</dd></div>` +
-      `</dl></div></article>`
+      `</dl>${buyButton(b, i, "Build")}</div></article>`
   ).join("");
 }
 
 function renderUnits() {
-  document.getElementById("unit-list").innerHTML = UNITS.map((u) => {
+  document.getElementById("unit-list").innerHTML = UNITS.map((u, i) => {
     const stats = UNIT_STATS.map(
       (s) => `<div class="stat"><dt>${s.label}</dt><dd>${statText(u[s.key])}</dd></div>`
     ).join("");
@@ -379,7 +410,7 @@ function renderUnits() {
       `<article class="card${isLocked(u.research) ? " locked" : ""}">` +
       `<div class="art" aria-hidden="true">${u.icon}</div>` +
       `<div class="info"><h3>${u.name}</h3>${unlockChip(u.research, u.unlock)}${tag}` +
-      `<dl class="stats">${stats}</dl></div></article>`
+      `<dl class="stats">${stats}</dl>${buyButton(u, i, "Train")}</div></article>`
     );
   }).join("");
 }
@@ -466,7 +497,7 @@ function showRuinResult(face) {
     claim.addEventListener("click", () => {
       state.stars += RUIN_STARS;
       saveState();
-      renderTrackerAndChip();
+      renderStars();
       claim.disabled = true;
       claim.textContent = `Added - you now have ${state.stars} ★`;
     });
@@ -523,7 +554,7 @@ function renderTracker() {
       state.superHp = SUPER_UNIT_MAX_HP;
     }
     saveState();
-    renderTrackerAndChip();
+    renderStars();
   };
 }
 
@@ -548,14 +579,37 @@ function changeCounter(field, step) {
   state[field] = Math.min(next, max);
 }
 
-function renderStarChip() {
-  document.getElementById("star-chip").innerHTML =
-    `★ ${state.stars}<small>+${state.perGo}/go</small>`;
+// Takes the cost off your stars. If you can't afford it, says so and returns false.
+function spend(cost, what) {
+  if (state.stars < cost) {
+    toast(`${what} costs ${cost} ★ - you have ${state.stars} ★`);
+    return false;
+  }
+  state.stars -= cost;
+  return true;
 }
 
-function renderTrackerAndChip() {
+// The stars banner under the header, on every page. A change floats up as +n / −n.
+function renderBanner() {
+  const delta = state.stars - bannerStars;
+  bannerStars = state.stars;
+  document.getElementById("star-banner").innerHTML =
+    `<span class="ribbon${delta ? " pop" : ""}">` +
+    `<span class="banner-count">★ ${state.stars}</span>` +
+    `<span class="banner-word">${state.stars === 1 ? "star" : "stars"}</span>` +
+    `<span class="banner-rate">+${state.perGo} per go</span></span>` +
+    (delta
+      ? `<span class="banner-delta ${delta > 0 ? "up" : "down"}">` +
+        `${delta > 0 ? "+" : "−"}${Math.abs(delta)}</span>`
+      : "");
+}
+
+// Everything that shows your stars: tracker, banner and the Build / Train buttons.
+function renderStars() {
   renderTracker();
-  renderStarChip();
+  renderBanner();
+  renderBuildings();
+  renderUnits();
 }
 
 // ---------- City levels ----------
@@ -580,12 +634,24 @@ function renderCities() {
 
 // ---------- Toast, version badge and changelog ----------
 
-function toast(text) {
+// Short message above the tab bar, with an optional button such as Undo.
+function toast(text, actionLabel = "", onAction = null) {
   const el = document.getElementById("toast");
   el.textContent = text;
+  if (onAction) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "toast-action";
+    btn.textContent = actionLabel;
+    btn.addEventListener("click", () => {
+      el.hidden = true;
+      onAction();
+    });
+    el.appendChild(btn);
+  }
   el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (el.hidden = true), TOAST_MS);
+  toastTimer = setTimeout(() => (el.hidden = true), onAction ? TOAST_ACTION_MS : TOAST_MS);
 }
 
 // Version badge: shows the current version; click to see the changelog.

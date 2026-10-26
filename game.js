@@ -2,10 +2,11 @@
 // units table, star / super unit tracker and city level upgrades.
 
 export const TRIBES = [
-  { key: "red", name: "Red", colour: "#d93a2b" },
-  { key: "yellow", name: "Yellow", colour: "#e8b10c" },
-  { key: "blue", name: "Blue", colour: "#2a6fd6" },
-  { key: "green", name: "Green", colour: "#2f9a45" },
+  // ink = text colour that reads clearly on top of the tribe colour.
+  { key: "red", name: "Red", colour: "#d93a2b", ink: "#fff" },
+  { key: "yellow", name: "Yellow", colour: "#e8b10c", ink: "#2b1d0e" },
+  { key: "blue", name: "Blue", colour: "#2a6fd6", ink: "#fff" },
+  { key: "green", name: "Green", colour: "#2f9a45", ink: "#fff" },
 ];
 
 export const INNER_COST = 4;

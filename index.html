@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=Cinzel:wght@600;700&family=Uncial+Antiqua&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=0.01" />
+  <link rel="stylesheet" href="styles.css?v=0.02" />
 </head>
 <body>
   <section id="splash" class="splash" aria-label="Hex Tribes">
@@ -30,8 +30,9 @@
         <img src="icon.svg" alt="" />
       </button>
       <h1 id="page-title">Home</h1>
-      <button id="star-chip" class="star-chip" type="button" aria-label="Open tracker"></button>
     </header>
+    <button id="star-banner" class="star-banner" type="button"
+      aria-label="Your stars - open the tracker"></button>
 
     <div id="pages" class="pages">
       <section class="page" id="page-home" data-title="Home">
@@ -43,9 +44,11 @@
         <h2>How to use</h2>
         <ul class="muted help">
           <li>Swipe left and right, or tap the tabs at the bottom, to change page.</li>
-          <li><b>Research</b>: tap a skill when you buy it. It gets a ring in your colour and
-            opens the outer ring.</li>
-          <li><b>Buildings</b> and <b>Units</b> show what your research has unlocked.</li>
+          <li><b>Research</b>: tap a skill to buy it. Its stars come off, it gets a ring in
+            your colour and it opens the outer ring.</li>
+          <li><b>Buildings</b> and <b>Units</b> show what your research has unlocked. Tap
+            <b>Build</b> or <b>Train</b> to pay for one.</li>
+          <li>Your stars are always shown on the banner at the top.</li>
           <li><b>Ruins</b>: roll the die when you explore a ruin.</li>
           <li><b>Tracker</b>: your stars, stars per go and super unit health.</li>
         </ul>
@@ -91,6 +94,6 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="app.js?v=0.01" type="module"></script>
+  <script src="app.js?v=0.02" type="module"></script>
 </body>
 </html>
