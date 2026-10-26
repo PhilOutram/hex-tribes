@@ -1,0 +1,136 @@
+// Game data, copied from the hand-drawn cardboard sheets: research tree, buildings table,
+// units table, star / super unit tracker and city level upgrades.
+
+export const TRIBES = [
+  { key: "red", name: "Red", colour: "#d93a2b" },
+  { key: "yellow", name: "Yellow", colour: "#e8b10c" },
+  { key: "blue", name: "Blue", colour: "#2a6fd6" },
+  { key: "green", name: "Green", colour: "#2f9a45" },
+];
+
+export const INNER_COST = 4;
+export const OUTER_COST = 6;
+
+// Inner ring, clockwise from top-left as drawn. Each branch opens three outer-ring skills.
+export const RESEARCH = [
+  {
+    key: "hunting", name: "Hunting", icon: "🦌",
+    children: [
+      { key: "storehouse", name: "Store house", icon: "🏠" },
+      { key: "lumberhut", name: "Lumber hut", icon: "🪓" },
+      { key: "archer", name: "Archer", icon: "🏹" },
+    ],
+  },
+  {
+    key: "organization", name: "Organization", icon: "🧺",
+    children: [
+      { key: "market", name: "Market", icon: "🏪" },
+      { key: "farm", name: "Farm", icon: "🌾" },
+      { key: "defender", name: "Defender", icon: "🛡️" },
+    ],
+  },
+  {
+    key: "climbing", name: "Climbing", icon: "🧗",
+    children: [
+      { key: "quarry", name: "Stone quarry", icon: "🪨" },
+      { key: "mining", name: "Mining", icon: "⛏️" },
+      { key: "swordsman", name: "Swordsman", icon: "⚔️" },
+    ],
+  },
+  {
+    key: "explorer", name: "Explorer", icon: "🧭",
+    children: [
+      { key: "road", name: "Road", icon: "🛣️" },
+      { key: "fence", name: "Fence", icon: "🚧" },
+      { key: "rider", name: "Rider", icon: "🐎" },
+    ],
+  },
+];
+
+// research = key of the research skill that unlocks it.
+export const BUILDINGS = [
+  { name: "Organize", icon: "🧺", research: "organization", cost: 2, terrain: "Grass",
+    pop: "1" },
+  { name: "Hunt", icon: "🦌", research: "hunting", cost: 2, terrain: "Wood", pop: "1" },
+  { name: "Lumber hut", icon: "🪓", research: "lumberhut", cost: 3, terrain: "Wood",
+    pop: "1" },
+  { name: "Store house", icon: "🏠", research: "storehouse", cost: 5, terrain: "Wood / grass",
+    pop: "1 per adjacent lumber hut" },
+  { name: "Farm", icon: "🌾", research: "farm", cost: 6, terrain: "Grass", pop: "2" },
+  { name: "Market", icon: "🏪", research: "market", cost: 5, terrain: "Grass",
+    pop: "1 per adjacent farm" },
+  { name: "Mine", icon: "⛏️", research: "mining", cost: 5, terrain: "Iron mountain",
+    pop: "2" },
+  { name: "Stone quarry", icon: "🪨", research: "quarry", cost: 5, terrain: "Grass / wood",
+    pop: "2 per adjacent mine" },
+  { name: "Road", icon: "🛣️", research: "road", cost: 2, terrain: "Grass / wood",
+    pop: "1 for capital, 1 for town" },
+];
+
+export const UNIT_STATS = [
+  { key: "atk", label: "Atk" },
+  { key: "def", label: "Def" },
+  { key: "hp", label: "HP" },
+  { key: "cost", label: "Cost" },
+  { key: "move", label: "Move" },
+  { key: "range", label: "Range" },
+  { key: "atkBack", label: "Atk bak" },
+];
+
+// research: null = available from the start; unlock = text shown when not unlocked by
+// research.
+export const UNITS = [
+  { name: "Warrior", icon: "🪖", research: null, unlock: "Start unit",
+    atk: 2, def: 1, hp: 4, cost: 2, move: 1, range: 1, atkBack: 1 },
+  { name: "Explorer", icon: "🧭", research: "explorer",
+    atk: 2, def: 1, hp: 4, cost: 3, move: 2, range: 1, atkBack: 1 },
+  { name: "Defender", icon: "🛡️", research: "defender", tag: "Static",
+    atk: 1, def: 4, hp: 4, cost: 3, move: 1, range: 1, atkBack: 3 },
+  { name: "Archer", icon: "🏹", research: "archer",
+    atk: 2, def: 1, hp: 4, cost: 3, move: 1, range: 3, atkBack: 1 },
+  { name: "Swordsman", icon: "⚔️", research: "swordsman",
+    atk: 4, def: 2, hp: 6, cost: 5, move: 1, range: 1, atkBack: 1 },
+  { name: "Knight", icon: "🐎", research: "rider", tag: "Persist",
+    atk: 4, def: 1, hp: 4, cost: 8, move: 3, range: 1, atkBack: 1 },
+  { name: "Super Unit", icon: "🗿", research: null, unlock: "City level 5", tag: "Static",
+    atk: 4, def: 2, hp: 16, cost: null, move: 1, range: 1, atkBack: 2 },
+];
+
+export const SUPER_UNIT_MAX_HP = 16;
+export const START_STARS_PER_GO = 2;
+
+// City upgrades: pop = population needed to reach the next level; pick one reward.
+export const CITY_LEVELS = [
+  { from: "City level 1", to: "City level 2", pop: 2, choices: [
+    { name: "Workshop", icon: "🔨", text: "+1 ★ per go" },
+    { name: "Mega mill", icon: "🏭", text: "+1 ★ per go for each adjacent mill / forge" },
+  ] },
+  { from: "City level 2", to: "City level 3", pop: 3, choices: [
+    { name: "Resources", icon: "💰", text: "+5 ★" },
+    { name: "City wall", icon: "🧱", text: "+1 defence in the city" },
+  ] },
+  { from: "City level 3", to: "City level 4", pop: 4, choices: [
+    { name: "Border growth", icon: "🗺️", text: "City borders grow" },
+    { name: "Population", icon: "👪", text: "+3 population" },
+  ] },
+  { from: "City level 4", to: "City level 5+", pop: 5, choices: [
+    { name: "Super Unit", icon: "🗿", text: "A Super Unit (16 HP)" },
+    { name: "Park of fortune", icon: "🌳", text: "+2 ★ per go" },
+  ] },
+  { from: "Gatehouse level 1", to: "Gatehouse level 2", pop: 4, choices: [] },
+];
+
+// Ruins: roll a six-sided die. Rolls 1-2 give a unit, 3-4 a building, 5-6 stars.
+export const DIE_FACES = 6;
+export const RUIN_MAX_UNIT_COST = 3;
+export const RUIN_MAX_BUILDING_COST = 3;
+export const RUIN_STARS = 4;
+
+export const RUIN_OUTCOMES = [
+  { rolls: [1, 2], kind: "unit", icon: "⚔️", title: "A unit",
+    text: `Any unit costing up to ${RUIN_MAX_UNIT_COST} ★` },
+  { rolls: [3, 4], kind: "building", icon: "🔨", title: "A building",
+    text: `Any building costing up to ${RUIN_MAX_BUILDING_COST} ★` },
+  { rolls: [5, 6], kind: "stars", icon: "⭐", title: `${RUIN_STARS} stars`,
+    text: `+${RUIN_STARS} ★ to spend` },
+];

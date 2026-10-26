@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#3a2a1c" />
+  <meta name="description" content="Hex Tribes - player reference for the hex tribe board game" />
+  <title>Hex Tribes</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=Cinzel:wght@600;700&family=Uncial+Antiqua&display=swap" />
+  <link rel="stylesheet" href="styles.css?v=0.01" />
+</head>
+<body>
+  <section id="splash" class="splash" aria-label="Hex Tribes">
+    <img class="splash-art" src="splash.jpg" alt="The Hex Tribes board, mid-game" />
+    <div class="splash-title">
+      <h1>Hex Tribes</h1>
+      <button id="start" class="start-btn" type="button">Tap to begin</button>
+    </div>
+  </section>
+
+  <main id="app" class="app" hidden>
+    <header class="top">
+      <button id="home" class="home-btn" type="button" aria-label="Back to title screen">
+        <img src="icon.svg" alt="" />
+      </button>
+      <h1 id="page-title">Home</h1>
+      <button id="star-chip" class="star-chip" type="button" aria-label="Open tracker"></button>
+    </header>
+
+    <div id="pages" class="pages">
+      <section class="page" id="page-home" data-title="Home">
+        <h2>Choose your banner</h2>
+        <div id="tribes" class="tribes"></div>
+        <h2>New game</h2>
+        <p class="muted">Clears your research and resets the tracker. Your colour is kept.</p>
+        <button id="new-game" class="btn" type="button">Start a new game</button>
+        <h2>How to use</h2>
+        <ul class="muted help">
+          <li>Swipe left and right, or tap the tabs at the bottom, to change page.</li>
+          <li><b>Research</b>: tap a skill when you buy it. It gets a ring in your colour and
+            opens the outer ring.</li>
+          <li><b>Buildings</b> and <b>Units</b> show what your research has unlocked.</li>
+          <li><b>Ruins</b>: roll the die when you explore a ruin.</li>
+          <li><b>Tracker</b>: your stars, stars per go and super unit health.</li>
+        </ul>
+        <div id="home-version" class="home-version"></div>
+      </section>
+
+      <section class="page" id="page-research" data-title="Research">
+        <svg id="tree" class="tree" viewBox="-205 -208 410 416" role="group"
+          aria-label="Research tree"></svg>
+        <p id="research-summary" class="summary"></p>
+        <p class="muted center">Inner ring <b>4 ★</b> &middot; outer ring <b>6 ★</b>.
+          Tap a skill to research it, tap again to undo.</p>
+      </section>
+
+      <section class="page" id="page-buildings" data-title="Buildings">
+        <div id="building-list" class="cards"></div>
+      </section>
+
+      <section class="page" id="page-units" data-title="Units">
+        <div id="unit-list" class="cards"></div>
+      </section>
+
+      <section class="page" id="page-ruins" data-title="Ruins">
+        <p class="muted center">Found a ruin? Roll the die to see what lies inside.</p>
+        <button id="die" class="die" type="button" aria-label="Roll the die"></button>
+        <button id="roll" class="btn big" type="button">Roll the die</button>
+        <div id="ruin-result" class="ruin-result" aria-live="polite"></div>
+        <h2>What the die gives</h2>
+        <div id="ruin-table" class="ruin-table"></div>
+      </section>
+
+      <section class="page" id="page-tracker" data-title="Tracker">
+        <div id="tracker" class="tracker"></div>
+      </section>
+
+      <section class="page" id="page-cities" data-title="City levels">
+        <div id="city-list"></div>
+      </section>
+    </div>
+
+    <nav id="tabs" class="tabs" aria-label="Pages"></nav>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="app.js?v=0.01" type="module"></script>
+</body>
+</html>

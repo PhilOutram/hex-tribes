@@ -1,0 +1,23 @@
+{
+  "name": "Hex Tribes",
+  "short_name": "Hex Tribes",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#3a2a1c",
+  "theme_color": "#3a2a1c",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hex Tribes">
+  <path d="M86 50 H426 V250 C426 370 340 440 256 476 C172 440 86 370 86 250 Z"
+    fill="#3a2a1c" stroke="#d4a63a" stroke-width="22" stroke-linejoin="round" />
+  <path d="M256 92 L392 170 V326 L256 404 L120 326 V170 Z" fill="#efe0bd" />
+  <path d="M196 352 V232 H180 V190 H208 V210 H232 V190 H280 V210 H304 V190 H332 V232
+    H316 V352 Z" fill="#3a2a1c" />
+  <path d="M238 352 V300 A18 18 0 0 1 274 300 V352 Z" fill="#d4a63a" />
+  <path d="M256 190 V128 L302 142 L256 156" fill="#d93a2b" stroke="#3a2a1c" stroke-width="6"
+    stroke-linejoin="round" />
+</svg>
