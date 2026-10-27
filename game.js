@@ -42,13 +42,14 @@ export const RESEARCH = [
     key: "explorer", name: "Explorer", icon: "🧭",
     children: [
       { key: "road", name: "Road", icon: "🛣️" },
-      { key: "fence", name: "Fence", icon: "🚧" },
+      { key: "gatehouse", name: "Gatehouse", icon: "🚪" },
       { key: "rider", name: "Rider", icon: "🐎" },
     ],
   },
 ];
 
-// research = key of the research skill that unlocks it.
+// research = key of the research skill that unlocks it; cost null = not decided yet;
+// note = rule text shown on the card.
 export const BUILDINGS = [
   { name: "Organize", icon: "🧺", research: "organization", cost: 2, terrain: "Grass",
     pop: "1" },
@@ -66,6 +67,9 @@ export const BUILDINGS = [
     pop: "2 per adjacent mine" },
   { name: "Road", icon: "🛣️", research: "road", cost: 2, terrain: "Grass / wood",
     pop: "1 for capital, 1 for town" },
+  { name: "Gatehouse", icon: "🚪", research: "gatehouse", cost: null, terrain: "Not decided",
+    pop: "4 pop to reach level 2",
+    note: "Enemy units can't move onto it. At level 2, units can be trained on it." },
 ];
 
 export const UNIT_STATS = [
@@ -82,6 +86,8 @@ export const UNIT_STATS = [
 // research.
 export const SUPER_UNIT_MAX_HP = 20;
 
+const STATIC_TEXT = "Static: can't move and then attack in the same go.";
+
 // Stats rebalanced on 2026-10-27 for Atk - Def damage (they were tuned for Atk / Def).
 // ability = rule text shown on the unit's card.
 export const UNITS = [
@@ -89,7 +95,7 @@ export const UNITS = [
     atk: 3, def: 1, hp: 4, cost: 2, move: 1, range: 1, atkBack: 2 },
   { name: "Explorer", icon: "🧭", research: "explorer",
     atk: 3, def: 1, hp: 4, cost: 3, move: 2, range: 1, atkBack: 1 },
-  { name: "Defender", icon: "🛡️", research: "defender", tag: "Static",
+  { name: "Defender", icon: "🛡️", research: "defender", tag: "Static", ability: STATIC_TEXT,
     atk: 2, def: 2, hp: 5, cost: 3, move: 1, range: 1, atkBack: 3 },
   { name: "Archer", icon: "🏹", research: "archer",
     atk: 3, def: 1, hp: 5, cost: 4, move: 1, range: 3, atkBack: 1 },
@@ -99,6 +105,7 @@ export const UNITS = [
     ability: "Persist: after each kill it moves onto the space and may attack again.",
     atk: 5, def: 1, hp: 5, cost: 6, move: 3, range: 1, atkBack: 2 },
   { name: "Super Unit", icon: "🗿", research: null, unlock: "City level 5", tag: "Static",
+    ability: STATIC_TEXT,
     atk: 4, def: 1, hp: SUPER_UNIT_MAX_HP, cost: null, move: 1, range: 1, atkBack: 2 },
 ];
 
@@ -113,18 +120,28 @@ export const COMBAT_RULES = [
     "range. An Archer shooting from 2 or 3 hexes away is not hit back.",
   "<b>Kills:</b> a unit that kills the unit it attacked moves onto that space. An Archer " +
     "shooting from further away stays where it is.",
+  "<b>Static</b> (Defender, Super Unit): can't move and then attack in the same go.",
   "<b>Persist</b> (Knight): it moves once, but after each kill it moves onto the space and " +
     "may attack again. It keeps going as long as it keeps killing.",
   "<b>Example:</b> a Warrior (Atk 3) attacks a Defender (Def 2) and does 1 damage. The " +
     "Defender survives and hits back for 3 − 1 = 2.",
 ];
 export const START_STARS_PER_GO = 2;
+export const CITY_LEVEL_STARS = 1;
+
+export const STARS_PER_GO_RULE =
+  "Each city gives stars per go equal to its level, like Polytopia. Your capital gives 1 " +
+  "extra, which is why you start on 2. When a city levels up, or you take a new city, add " +
+  "to your stars per go.";
+
+export const WIN_RULE = "Take over all the other tribes' cities.";
 
 // City upgrades: pop = population needed to reach the next level; pick one reward.
 export const CITY_LEVELS = [
   { from: "City level 1", to: "City level 2", pop: 2, choices: [
     { name: "Workshop", icon: "🔨", text: "+1 ★ per go" },
-    { name: "Mega mill", icon: "🏭", text: "+1 ★ per go for each adjacent mill / forge" },
+    { name: "Mega mill", icon: "🏭",
+      text: "+1 ★ per go for each adjacent store house, market and quarry" },
   ] },
   { from: "City level 2", to: "City level 3", pop: 3, choices: [
     { name: "Resources", icon: "💰", text: "+5 ★" },
@@ -138,7 +155,9 @@ export const CITY_LEVELS = [
     { name: "Super Unit", icon: "🗿", text: `A Super Unit (${SUPER_UNIT_MAX_HP} HP)` },
     { name: "Park of fortune", icon: "🌳", text: "+2 ★ per go" },
   ] },
-  { from: "Gatehouse level 1", to: "Gatehouse level 2", pop: 4, choices: [] },
+  { from: "Gatehouse level 1", to: "Gatehouse level 2", pop: 4, choices: [
+    { name: "Training ground", icon: "⚔️", text: "Units can be trained on the gatehouse" },
+  ] },
 ];
 
 // Ruins: roll a six-sided die. Rolls 1-2 give a unit, 3-4 a building, 5-6 stars.

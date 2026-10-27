@@ -1,11 +1,12 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.04";
+import { VERSION, CHANGELOG } from "./version.js?v=0.05";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   SUPER_UNIT_MAX_HP, START_STARS_PER_GO, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST,
-  RUIN_MAX_BUILDING_COST, RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES,
-} from "./game.js?v=0.04";
+  RUIN_MAX_BUILDING_COST, RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS,
+  STARS_PER_GO_RULE, WIN_RULE,
+} from "./game.js?v=0.05";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -83,6 +84,7 @@ let bannerStars = state.stars;
 applyTribe();
 renderTabs();
 renderTribes();
+document.getElementById("win-rule").textContent = WIN_RULE;
 renderTree();
 renderBuildings();
 renderUnits();
@@ -104,8 +106,11 @@ document.getElementById("star-banner").addEventListener("click", () => goToPage(
 document.getElementById("building-list").addEventListener("click", (e) => {
   buyFrom(e, BUILDINGS, "Built");
 });
-document.getElementById("unit-list").addEventListener("click", (e) => buyFrom(e, UNITS, "Trained"));
+document.getElementById("unit-list").addEventListener("click", (e) => {
+  buyFrom(e, UNITS, "Trained");
+});
 document.getElementById("new-game").addEventListener("click", newGame);
+document.getElementById("city-level-up").addEventListener("click", cityLevelUp);
 
 pages.addEventListener("scroll", () => requestAnimationFrame(syncPageFromScroll), {
   passive: true,
@@ -128,8 +133,10 @@ function defaultState() {
 
 function loadState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORE_KEY));
-    return { ...defaultState(), ...saved };
+    const saved = { ...defaultState(), ...JSON.parse(localStorage.getItem(STORE_KEY)) };
+    // Drop research saved under a skill that has since been renamed or removed.
+    saved.researched = saved.researched.filter((key) => key in NODES);
+    return saved;
   } catch {
     return defaultState();
   }
@@ -394,10 +401,11 @@ function renderBuildings() {
       `<div class="art" aria-hidden="true">${b.icon}</div>` +
       `<div class="info"><h3>${b.name}</h3>${unlockChip(b.research)}` +
       `<dl class="stats building-stats">` +
-      `<div class="stat"><dt>Cost</dt><dd>${b.cost} ★</dd></div>` +
+      `<div class="stat"><dt>Cost</dt><dd>${b.cost === null ? "?" : `${b.cost} ★`}</dd></div>` +
       `<div class="stat wide"><dt>Terrain</dt><dd>${b.terrain}</dd></div>` +
       `<div class="stat full"><dt>Population</dt><dd>${b.pop}</dd></div>` +
-      `</dl>${buyButton(b, i, "Build")}</div></article>`
+      `</dl>${b.note ? `<p class="ability">${b.note}</p>` : ""}` +
+      `${buyButton(b, i, "Build")}</div></article>`
   ).join("");
 }
 
@@ -487,7 +495,7 @@ function showRuinResult(face) {
   if (outcome.kind === "unit") {
     body = pickList(UNITS.filter((u) => u.cost !== null && u.cost <= RUIN_MAX_UNIT_COST));
   } else if (outcome.kind === "building") {
-    body = pickList(BUILDINGS.filter((b) => b.cost <= RUIN_MAX_BUILDING_COST));
+    body = pickList(BUILDINGS.filter((b) => b.cost !== null && b.cost <= RUIN_MAX_BUILDING_COST));
   } else {
     body = `<button type="button" id="claim-stars" class="btn">` +
       `Add ${RUIN_STARS} ★ to my stars</button>`;
@@ -621,7 +629,22 @@ function renderStars() {
 
 // ---------- City levels ----------
 
+// A city levelled up or was taken: it now gives one more star per go.
+function cityLevelUp() {
+  state.perGo += CITY_LEVEL_STARS;
+  saveState();
+  renderStars();
+  toast(`+${CITY_LEVEL_STARS} ★ per go - now ${state.perGo} per go`, "Undo", () => {
+    state.perGo -= CITY_LEVEL_STARS;
+    saveState();
+    renderStars();
+  });
+}
+
 function renderCities() {
+  document.getElementById("city-stars-rule").textContent = STARS_PER_GO_RULE;
+  document.getElementById("city-level-up").textContent =
+    `City level up: +${CITY_LEVEL_STARS} ★ per go`;
   document.getElementById("city-list").innerHTML = CITY_LEVELS.map((level) => {
     const choices = level.choices.length
       ? level.choices.map(

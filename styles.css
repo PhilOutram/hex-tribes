@@ -990,6 +990,22 @@ h3 {
   margin: 0;
 }
 
+/* A level with a single reward has no "or": let it fill the row. */
+.choices > .choice:only-child {
+  grid-column: 1 / -1;
+}
+
+.rules > p {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+}
+
+.win-rule {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
 .choice {
   display: grid;
   justify-items: center;

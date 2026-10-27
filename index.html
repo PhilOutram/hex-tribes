@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=Cinzel:wght@600;700&family=Uncial+Antiqua&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=0.04" />
+  <link rel="stylesheet" href="styles.css?v=0.05" />
 </head>
 <body>
   <section id="splash" class="splash" aria-label="Hex Tribes">
@@ -38,6 +38,8 @@
       <section class="page" id="page-home" data-title="Home">
         <h2>Choose your banner</h2>
         <div id="tribes" class="tribes"></div>
+        <h2>How to win</h2>
+        <p id="win-rule" class="win-rule"></p>
         <h2>New game</h2>
         <p class="muted">Clears your research and resets the tracker. Your colour is kept.</p>
         <button id="new-game" class="btn" type="button">Start a new game</button>
@@ -90,6 +92,11 @@
       </section>
 
       <section class="page" id="page-cities" data-title="City levels">
+        <section class="rules">
+          <h2>Stars per go</h2>
+          <p id="city-stars-rule" class="muted"></p>
+          <button id="city-level-up" class="btn small" type="button"></button>
+        </section>
         <div id="city-list"></div>
       </section>
     </div>
@@ -99,6 +106,6 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="app.js?v=0.04" type="module"></script>
+  <script src="app.js?v=0.05" type="module"></script>
 </body>
 </html>

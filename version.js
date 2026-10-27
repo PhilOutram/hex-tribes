@@ -1,8 +1,17 @@
-export const VERSION = "v0.04";
+export const VERSION = "v0.05";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.05",
+    date: "2026-10-27",
+    notes: [
+      "Fence is now the Gatehouse, with its own building card and level 2 reward.",
+      "Static explained; Mega mill counts store houses, markets and quarries; how to win.",
+      "Stars per go rule and a city level-up button on the Cities page.",
+    ],
+  },
   {
     version: "v0.04",
     date: "2026-10-27",
