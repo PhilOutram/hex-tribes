@@ -1,11 +1,11 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.02";
+import { VERSION, CHANGELOG } from "./version.js?v=0.03";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   SUPER_UNIT_MAX_HP, START_STARS_PER_GO, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST,
-  RUIN_MAX_BUILDING_COST, RUIN_STARS, RUIN_OUTCOMES,
-} from "./game.js?v=0.02";
+  RUIN_MAX_BUILDING_COST, RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES,
+} from "./game.js?v=0.03";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -86,6 +86,7 @@ renderTribes();
 renderTree();
 renderBuildings();
 renderUnits();
+renderCombatRules();
 renderRuins();
 renderTracker();
 renderCities();
@@ -413,6 +414,11 @@ function renderUnits() {
       `<dl class="stats">${stats}</dl>${buyButton(u, i, "Train")}</div></article>`
     );
   }).join("");
+}
+
+function renderCombatRules() {
+  document.getElementById("combat-rules").innerHTML =
+    COMBAT_RULES.map((rule) => `<li>${rule}</li>`).join("");
 }
 
 // A cost of null (the Super Unit) shows as a dash, as on the cardboard.

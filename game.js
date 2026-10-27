@@ -80,24 +80,38 @@ export const UNIT_STATS = [
 
 // research: null = available from the start; unlock = text shown when not unlocked by
 // research.
+// Stats rebalanced on 2026-10-27 for Atk - Def damage (they were tuned for Atk / Def).
 export const UNITS = [
   { name: "Warrior", icon: "🪖", research: null, unlock: "Start unit",
-    atk: 2, def: 1, hp: 4, cost: 2, move: 1, range: 1, atkBack: 1 },
+    atk: 3, def: 1, hp: 4, cost: 2, move: 1, range: 1, atkBack: 2 },
   { name: "Explorer", icon: "🧭", research: "explorer",
-    atk: 2, def: 1, hp: 4, cost: 3, move: 2, range: 1, atkBack: 1 },
+    atk: 3, def: 1, hp: 4, cost: 3, move: 2, range: 1, atkBack: 1 },
   { name: "Defender", icon: "🛡️", research: "defender", tag: "Static",
-    atk: 1, def: 4, hp: 4, cost: 3, move: 1, range: 1, atkBack: 3 },
+    atk: 2, def: 2, hp: 5, cost: 3, move: 1, range: 1, atkBack: 3 },
   { name: "Archer", icon: "🏹", research: "archer",
-    atk: 2, def: 1, hp: 4, cost: 3, move: 1, range: 3, atkBack: 1 },
+    atk: 3, def: 1, hp: 5, cost: 4, move: 1, range: 3, atkBack: 1 },
   { name: "Swordsman", icon: "⚔️", research: "swordsman",
-    atk: 4, def: 2, hp: 6, cost: 5, move: 1, range: 1, atkBack: 1 },
+    atk: 4, def: 2, hp: 6, cost: 5, move: 1, range: 1, atkBack: 2 },
   { name: "Knight", icon: "🐎", research: "rider", tag: "Persist",
-    atk: 4, def: 1, hp: 4, cost: 8, move: 3, range: 1, atkBack: 1 },
+    atk: 5, def: 1, hp: 5, cost: 6, move: 3, range: 1, atkBack: 2 },
   { name: "Super Unit", icon: "🗿", research: null, unlock: "City level 5", tag: "Static",
     atk: 4, def: 2, hp: 16, cost: null, move: 1, range: 1, atkBack: 2 },
 ];
 
 export const SUPER_UNIT_MAX_HP = 16;
+
+// Combat: damage is Atk minus Def, but never less than this.
+export const MIN_DAMAGE = 1;
+
+export const COMBAT_RULES = [
+  `<b>Damage</b> = attacker's Atk − target's Def, always at least ${MIN_DAMAGE}.`,
+  "<b>Hitting back:</b> if the target survives, it hits the attacker with its Atk bak − " +
+    `the attacker's Def, again at least ${MIN_DAMAGE}.`,
+  "<b>Range:</b> the target can only hit back if the attacker is within the target's own " +
+    "range. An Archer shooting from 2 or 3 hexes away is not hit back.",
+  "<b>Example:</b> a Warrior (Atk 3) attacks a Defender (Def 2) and does 1 damage. The " +
+    "Defender survives and hits back for 3 − 1 = 2.",
+];
 export const START_STARS_PER_GO = 2;
 
 // City upgrades: pop = population needed to reach the next level; pick one reward.
