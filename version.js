@@ -1,8 +1,17 @@
-export const VERSION = "v0.03";
+export const VERSION = "v0.04";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.04",
+    date: "2026-10-27",
+    notes: [
+      "Super Unit: Def 1 and 20 HP (tracker now counts down from 20).",
+      "New rules: a unit that kills moves onto the space; Persist lets the Knight keep " +
+        "attacking while it keeps killing.",
+    ],
+  },
   {
     version: "v0.03",
     date: "2026-10-27",

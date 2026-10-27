@@ -1,11 +1,11 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.03";
+import { VERSION, CHANGELOG } from "./version.js?v=0.04";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   SUPER_UNIT_MAX_HP, START_STARS_PER_GO, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST,
   RUIN_MAX_BUILDING_COST, RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES,
-} from "./game.js?v=0.03";
+} from "./game.js?v=0.04";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -407,11 +407,12 @@ function renderUnits() {
       (s) => `<div class="stat"><dt>${s.label}</dt><dd>${statText(u[s.key])}</dd></div>`
     ).join("");
     const tag = u.tag ? `<span class="chip tag">${u.tag}</span>` : "";
+    const ability = u.ability ? `<p class="ability">${u.ability}</p>` : "";
     return (
       `<article class="card${isLocked(u.research) ? " locked" : ""}">` +
       `<div class="art" aria-hidden="true">${u.icon}</div>` +
       `<div class="info"><h3>${u.name}</h3>${unlockChip(u.research, u.unlock)}${tag}` +
-      `<dl class="stats">${stats}</dl>${buyButton(u, i, "Train")}</div></article>`
+      `<dl class="stats">${stats}</dl>${ability}${buyButton(u, i, "Train")}</div></article>`
     );
   }).join("");
 }
