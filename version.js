@@ -1,8 +1,18 @@
-export const VERSION = "v0.12";
+export const VERSION = "v0.13";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.13",
+    date: "2026-10-28",
+    notes: [
+      "New Rules page with every rule, including taking cities, gatehouses, roads and ruins.",
+      "Take or lose a city on the Cities page; a game log on the Tracker.",
+      "Knights need 5 kills for Veteran; Mega mill tops out at +3; 1 point per unit; " +
+        "+1 ★ for going last.",
+    ],
+  },
   {
     version: "v0.12",
     date: "2026-10-28",

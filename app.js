@@ -1,14 +1,15 @@
-// Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
-// research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.12";
+// Hex Tribes - splash screen, then eight swipeable pages: home (tribe), rules, research
+// tree, buildings, units, ruins dice, tracker and cities.
+import { VERSION, CHANGELOG } from "./version.js?v=0.13";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
-  RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
-  STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE, START_STARS, START_UNIT, TRIBE_BONUS,
+  RUIN_STARS, RUIN_OUTCOMES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
+  GATEHOUSE_UPGRADE, START_STARS, START_UNIT, TRIBE_BONUS,
   REST_HEAL, CITY_REST_HEAL, KILL_STARS, VETERAN_KILLS, VETERAN_HP, ROUND_LIMIT,
-  CITY_LEVEL_POINTS, SKILL_POINTS, UNIT_POINTS, SCORE_RULE, GO_TIMER_SECONDS,
-} from "./game.js?v=0.12";
+  CITY_LEVEL_POINTS, SKILL_POINTS, UNIT_POINTS, GO_TIMER_SECONDS,
+  RULE_SECTIONS, HEXES_PER_RUIN, LAST_PLAYER_STARS,
+} from "./game.js?v=0.13";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -23,16 +24,21 @@ if ("serviceWorker" in navigator) {
 const STORE_KEY = "hex-tribes-state";
 const DEFAULT_TRIBE = "blue";
 
+// One tab per page, in the same order as the pages in index.html.
 const TABS = [
   { icon: "🚩", label: "Home" },
-  { icon: "📜", label: "Research" },
+  { icon: "📖", label: "Rules" },
+  { icon: "📜", label: "Tech" },
   { icon: "🔨", label: "Build" },
   { icon: "⚔️", label: "Units" },
   { icon: "🎲", label: "Ruins" },
   { icon: "⭐", label: "Tracker" },
   { icon: "🏘️", label: "Cities" },
 ];
-const TRACKER_PAGE = 5;
+const TRACKER_PAGE = TABS.findIndex((t) => t.label === "Tracker");
+
+// The game log keeps this many entries, newest first.
+const LOG_MAX = 200;
 
 // A city starts at level 1; a gatehouse has levels 1 and 2.
 const START_CITY_LEVEL = 1;
@@ -110,7 +116,7 @@ let bannerStars = state.stars;
 applyTribe();
 renderTabs();
 renderTribes();
-document.getElementById("win-rule").textContent = WIN_RULE;
+renderRules();
 renderTree();
 setupTreeInput();
 document.getElementById("research-hint").innerHTML =
@@ -119,12 +125,13 @@ document.getElementById("research-hint").innerHTML =
 renderBuildings();
 renderUnits();
 renderArmy();
-renderCombatRules();
 renderRuins();
 renderTracker();
 setupGoTimer();
+renderLog();
 renderCities();
 renderBanner();
+renderLastPlayer();
 renderVersionBadge(document.body, "version-badge splash-version");
 renderVersionBadge(document.getElementById("home-version"), "version-badge inline");
 
@@ -144,7 +151,9 @@ document.getElementById("unit-list").addEventListener("click", (e) => {
 document.getElementById("army").addEventListener("click", onArmyClick);
 document.getElementById("new-game").addEventListener("click", newGame);
 document.getElementById("my-cities").addEventListener("click", onCityClick);
-document.getElementById("add-city").addEventListener("click", addCity);
+document.getElementById("add-city").addEventListener("click", () => addCity(false));
+document.getElementById("take-city").addEventListener("click", () => addCity(true));
+document.getElementById("last-player").addEventListener("click", claimLastPlayer);
 document.getElementById("gatehouse-list").addEventListener("click", onGatehouseClick);
 
 pages.addEventListener("scroll", () => requestAnimationFrame(syncPageFromScroll), {
@@ -156,22 +165,26 @@ window.addEventListener("resize", () => goToPage(currentPage, false));
 
 function defaultState() {
   const capital = newCity(CAPITAL_NAME);
+  capital.capital = true;
   return {
     tribe: DEFAULT_TRIBE,
     researched: [],
     // Skills a ruin gave you for free: undoing them refunds nothing.
     freeSkills: [],
     stars: START_STARS,
-    perGo: cityPerGo(capital, 0),
+    perGo: cityPerGo(capital),
     // Units in play: type = unit name, num = its number among units of that type.
     army: [{ type: START_UNIT, num: 1, hp: UNIT_BY_NAME[START_UNIT].hp }],
     unitCounts: { [START_UNIT]: 1 },
     go: 1,
     page: 0,
-    // The first city is always the capital. cityCount numbers the cities you add.
+    // cityCount numbers the cities you add.
     cities: [capital],
     cityCount: 1,
     gatehouses: [],
+    // lastClaimed = the going-last bonus has been taken; log = game log, newest first.
+    lastClaimed: false,
+    log: [],
   };
 }
 
@@ -182,6 +195,8 @@ function loadState() {
     saved.researched = saved.researched.filter((key) => key in NODES);
     // Cities and gatehouses saved before population was tracked start from none.
     [...saved.cities, ...saved.gatehouses].forEach((place) => (place.pop ??= 0));
+    // Saves from before cities could be lost: the first city is the capital.
+    saved.cities.forEach((city, i) => (city.capital ??= i === 0));
     return saved;
   } catch {
     return defaultState();
@@ -322,11 +337,85 @@ function newGame() {
   Object.assign(state, defaultState(), keep);
   // The starting unit gets your tribe's bonus health, if it has one.
   state.army.forEach((s) => (s.hp = maxHp(s)));
+  addLog(`New game as ${tribe().name}: ${START_STARS} ★ and a ${START_UNIT}`);
   saveState();
   bannerStars = state.stars;
   renderTree();
   renderStars();
+  renderLastPlayer();
   toast(`New game: ${START_STARS} ★ and a ${START_UNIT}`);
+}
+
+// The player going last claims their extra stars once, before the end of round 1.
+function renderLastPlayer() {
+  const btn = document.getElementById("last-player");
+  btn.hidden = state.lastClaimed || state.go > 1;
+  btn.textContent = `Going last? Claim +${LAST_PLAYER_STARS} ★`;
+}
+
+function claimLastPlayer() {
+  state.stars += LAST_PLAYER_STARS;
+  state.lastClaimed = true;
+  addLog(`Going last: +${LAST_PLAYER_STARS} ★`);
+  saveState();
+  renderStars();
+  renderLastPlayer();
+  toast(`+${LAST_PLAYER_STARS} ★ for going last`);
+}
+
+// ---------- Rules ----------
+
+function renderRules() {
+  const box = document.getElementById("rules");
+  box.innerHTML = RULE_SECTIONS.map(
+    (s) =>
+      `<section class="rules"><h2><span aria-hidden="true">${s.icon}</span> ${s.title}</h2>` +
+      `<ul class="rules-list">${s.items.map((item) => `<li>${item}</li>`).join("")}</ul>` +
+      (s.ruinCount ? ruinCounter() : "") +
+      `</section>`
+  ).join("");
+  const hexes = document.getElementById("hex-count");
+  const showRuins = () => {
+    const ruins = Math.floor(Math.max(0, Number(hexes.value) || 0) / HEXES_PER_RUIN);
+    document.getElementById("ruin-count").textContent =
+      `${ruins} ${ruins === 1 ? "ruin" : "ruins"}`;
+  };
+  hexes.addEventListener("input", showRuins);
+  showRuins();
+}
+
+// Type in the number of hexes on your board to see how many ruins to place.
+function ruinCounter() {
+  return (
+    `<label class="ruin-counter">Hexes on your board ` +
+    `<input id="hex-count" type="number" min="0" inputmode="numeric" placeholder="0" />` +
+    `<span>= <b id="ruin-count"></b></span></label>`
+  );
+}
+
+// ---------- Game log ----------
+
+// Adds a line to the game log and returns it, so an Undo can take it back out.
+function addLog(text) {
+  const entry = { round: state.go, text };
+  state.log.unshift(entry);
+  state.log.length = Math.min(state.log.length, LOG_MAX);
+  renderLog();
+  return entry;
+}
+
+function removeLog(entry) {
+  state.log = state.log.filter((e) => e !== entry);
+  renderLog();
+}
+
+function renderLog() {
+  const list = document.getElementById("game-log");
+  list.innerHTML = state.log.length
+    ? state.log.map(
+      (e) => `<li><span class="log-round">R${e.round}</span>${e.text}</li>`
+    ).join("")
+    : `<li class="muted">Nothing yet - research, build, train and fight to fill it.</li>`;
 }
 
 // ---------- Research tree ----------
@@ -542,12 +631,14 @@ function toggleResearch(key) {
     state.researched = state.researched.filter((k) => !drop.includes(k));
     state.freeSkills = state.freeSkills.filter((k) => !drop.includes(k));
     state.stars += refund;
+    addLog(`Undid ${node.name}${refund ? `: +${refund} ★` : ""}`);
   } else if (node.parent && !isResearched(node.parent)) {
     toast(`Research ${NODES[node.parent].name} first`);
     return;
   } else {
     if (!spend(node.cost, node.name)) return;
     state.researched.push(key);
+    addLog(`Researched ${node.name}: −${node.cost} ★`);
     toast(`${node.name} researched: −${node.cost} ★`);
   }
   saveState();
@@ -591,12 +682,14 @@ function buy(item, done) {
   const isGatehouse = item === GATEHOUSE;
   if (isGatehouse) state.gatehouses.push({ level: START_CITY_LEVEL, pop: 0 });
   const soldier = UNITS.includes(item) ? addUnit(item.name) : null;
+  const entry = addLog(`${done} ${soldier ? unitLabel(soldier) : item.name}: −${item.cost} ★`);
   saveState();
   renderStars();
   toast(`${done} ${item.name}: −${item.cost} ★`, "Undo", () => {
     state.stars += item.cost;
     if (isGatehouse) state.gatehouses.pop();
     if (soldier) state.army = state.army.filter((s) => s !== soldier);
+    removeLog(entry);
     saveState();
     renderStars();
     toast(`${item.name} undone: +${item.cost} ★`);
@@ -649,8 +742,13 @@ function unitStats(unit) {
   return { ...unit, [bonus.stat]: unit[bonus.stat] + TRIBE_BONUS };
 }
 
+// Kills this unit needs to become a Veteran (a Knight needs more).
+function veteranKills(soldier) {
+  return UNIT_BY_NAME[soldier.type].vetKills ?? VETERAN_KILLS;
+}
+
 function isVeteran(soldier) {
-  return (soldier.kills || 0) >= VETERAN_KILLS;
+  return (soldier.kills || 0) >= veteranKills(soldier);
 }
 
 function maxHp(soldier) {
@@ -701,7 +799,7 @@ function renderArmy() {
       `<button type="button" class="chip-btn" data-act="heal" data-step="${CITY_REST_HEAL}">` +
       `🏘️ Rest in city +${CITY_REST_HEAL}</button>` +
       `<button type="button" class="chip-btn" data-act="kill">` +
-      `⚔️ Kill${kills ? ` (${kills})` : ""}</button></div></div>`
+      `⚔️ Kill (${isVeteran(s) ? kills : `${kills}/${veteranKills(s)}`})</button></div></div>`
     );
   });
   const empty = `<p class="muted">No units in play yet. Training a unit below adds it here.</p>`;
@@ -740,8 +838,10 @@ function onArmyClick(e) {
     const fallen = soldier.hp <= 0;
     soldier.hp = Math.max(soldier.hp, 1);
     state.army.splice(index, 1);
+    const entry = addLog(`${unitLabel(soldier)} ${fallen ? "has fallen" : "removed"}`);
     toast(`${unitLabel(soldier)} ${fallen ? "has fallen" : "removed"}`, "Undo", () => {
       state.army.splice(Math.min(index, state.army.length), 0, soldier);
+      removeLog(entry);
       saveState();
       renderArmy();
     });
@@ -755,25 +855,22 @@ function recordKill(soldier) {
   const hpBefore = soldier.hp;
   soldier.kills = (soldier.kills || 0) + 1;
   state.stars += KILL_STARS;
-  const promoted = soldier.kills === VETERAN_KILLS;
+  const promoted = soldier.kills === veteranKills(soldier);
   if (promoted) soldier.hp = maxHp(soldier);
-  saveState();
-  renderStars();
   const text = promoted
     ? `${unitLabel(soldier)} is a Veteran! +${VETERAN_HP} max HP, +${KILL_STARS} ★`
     : `${unitLabel(soldier)} kill: +${KILL_STARS} ★`;
+  const entry = addLog(text);
+  saveState();
+  renderStars();
   toast(text, "Undo", () => {
     soldier.kills -= 1;
     soldier.hp = Math.min(hpBefore, maxHp(soldier));
     state.stars = Math.max(0, state.stars - KILL_STARS);
+    removeLog(entry);
     saveState();
     renderStars();
   });
-}
-
-function renderCombatRules() {
-  document.getElementById("combat-rules").innerHTML =
-    COMBAT_RULES.map((rule) => `<li>${rule}</li>`).join("");
 }
 
 // A cost of null (the Super Unit) shows as a dash, as on the cardboard.
@@ -864,6 +961,7 @@ function showRuinResult(face) {
   if (claim) {
     claim.addEventListener("click", () => {
       state.stars += RUIN_STARS;
+      addLog(`Ruin: +${RUIN_STARS} ★`);
       saveState();
       renderStars();
       claim.disabled = true;
@@ -910,11 +1008,14 @@ function onRuinPick(e) {
   if (!btn || btn.disabled) return;
   let done = "";
   if (btn.dataset.ruinUnit) {
-    done = `${unitLabel(addUnit(btn.dataset.ruinUnit))} added to your active units.`;
+    const soldier = addUnit(btn.dataset.ruinUnit);
+    done = `${unitLabel(soldier)} added to your active units.`;
+    addLog(`Ruin: ${unitLabel(soldier)} joined`);
   } else {
     state.researched.push(btn.dataset.ruinSkill);
     state.freeSkills.push(btn.dataset.ruinSkill);
     done = `${NODES[btn.dataset.ruinSkill].name} researched for free.`;
+    addLog(`Ruin: ${NODES[btn.dataset.ruinSkill].name} researched for free`);
     renderTree();
   }
   saveState();
@@ -986,7 +1087,9 @@ function endRoundButton() {
 
 function endRound() {
   state.stars += state.perGo;
+  addLog(`End of round ${state.go}: +${state.perGo} ★`);
   state.go += 1;
+  renderLastPlayer();
   if (isGameOver()) {
     toast(`Game over! You scored ${score().total} points`);
   } else if (state.go === ROUND_LIMIT) {
@@ -1020,7 +1123,7 @@ function scoreSection() {
         `<div><dt>${r.label}</dt><dd>${r.count} &times; ${r.each} = ` +
         `<b>${r.count * r.each}</b></dd></div>`
     ).join("") +
-    `</dl><p class="muted score-rule">${SCORE_RULE}</p></section>`
+    `</dl></section>`
   );
 }
 
@@ -1178,13 +1281,17 @@ function pickedRewards(city) {
   return rewards;
 }
 
+// Stars per go one reward gives a city. Mega mill counts adjacent buildings, up to its cap.
+function rewardPerGo(choice, city) {
+  const adjacent = Math.min((choice.perAdjacent || 0) * city.adjacent,
+    choice.maxPerGo ?? Infinity);
+  return (choice.perGo || 0) + adjacent;
+}
+
 // Stars per go from one city: its level, the capital's extra and any rewards that add some.
-function cityPerGo(city, index) {
-  let total = city.level * CITY_LEVEL_STARS + (index === 0 ? CAPITAL_EXTRA_STARS : 0);
-  pickedRewards(city).forEach((c) => {
-    total += (c.perGo || 0) + (c.perAdjacent || 0) * city.adjacent;
-  });
-  return total;
+function cityPerGo(city) {
+  const total = city.level * CITY_LEVEL_STARS + (city.capital ? CAPITAL_EXTRA_STARS : 0);
+  return pickedRewards(city).reduce((sum, c) => sum + rewardPerGo(c, city), total);
 }
 
 // Stars a city's rewards gave you once (Resources).
@@ -1196,14 +1303,15 @@ function signed(n) {
   return n > 0 ? `+${n}` : `−${-n}`;
 }
 
-// Changes a city, then moves your stars per go and stars by however much that changed.
+// Changes a city, then moves your stars per go and stars by however much that changed. A
+// taken city being set up only moves stars per go: its one-off stars were the old owner's.
 function changeCity(index, change) {
   const city = state.cities[index];
-  const perGo = cityPerGo(city, index);
+  const perGo = cityPerGo(city);
   const stars = cityStars(city);
   change(city);
-  const perGoDelta = cityPerGo(city, index) - perGo;
-  const starsDelta = cityStars(city) - stars;
+  const perGoDelta = cityPerGo(city) - perGo;
+  const starsDelta = city.setup ? 0 : cityStars(city) - stars;
   state.perGo = Math.max(0, state.perGo + perGoDelta);
   state.stars = Math.max(0, state.stars + starsDelta);
   saveState();
@@ -1214,16 +1322,22 @@ function changeCity(index, change) {
   if (parts.length) toast(`${city.name}: ${parts.join(", ")}`);
 }
 
-function addCity() {
+// A city you built, or one you took. A taken city starts in setup, so you can give it the
+// level and rewards it already had.
+function addCity(taken) {
   state.cityCount += 1;
   const city = newCity(`City ${state.cityCount}`);
   if (tribe().bonus.cityPop) city.pop = TRIBE_BONUS;
+  if (taken) city.setup = true;
   state.cities.push(city);
-  const perGo = cityPerGo(city, state.cities.length - 1);
+  const perGo = cityPerGo(city);
   state.perGo += perGo;
+  if (!taken) addLog(`Built ${city.name}: +${perGo} ★ per go`);
   saveState();
   renderStars();
-  toast(`${city.name} added: +${perGo} ★ per go`);
+  toast(taken
+    ? `${city.name} taken - set the level and rewards it had`
+    : `${city.name} added: +${perGo} ★ per go`);
 }
 
 function onCityClick(e) {
@@ -1234,9 +1348,17 @@ function onCityClick(e) {
   const act = btn.dataset.act;
   if (act === "up") {
     changeCity(index, (c) => {
-      c.pop = popAfterLevelUp(c.pop, tierFor(c.level + 1).pop);
+      if (!c.setup) c.pop = popAfterLevelUp(c.pop, tierFor(c.level + 1).pop);
       c.level += 1;
     });
+    if (!city.setup) addLog(`${city.name} reached level ${city.level}`);
+  } else if (act === "capital") {
+    changeCity(index, (c) => (c.capital = !c.capital));
+  } else if (act === "done") {
+    city.setup = false;
+    addLog(`Took ${city.name} (level ${city.level}): +${cityPerGo(city)} ★ per go`);
+    saveState();
+    renderCities();
   } else if (act === "pop") {
     const need = tierFor(city.level + 1).pop;
     const wasReady = city.pop >= need;
@@ -1254,17 +1376,20 @@ function onCityClick(e) {
     const slot = Number(btn.dataset.level) - FIRST_REWARD_LEVEL;
     const choice = Number(btn.dataset.choice);
     const choices = tierFor(slot + FIRST_REWARD_LEVEL).choices;
+    const before = city.picks[slot] ?? null;
+    const after = before === choice ? null : choice;
     changeCity(index, (c) => {
+      c.picks[slot] = after;
+      // One-off rewards (population, a Super Unit) went to the old owner of a taken city.
+      if (c.setup) return;
       // A reward that adds population (Population) gives it, or takes it back if unpicked.
-      const before = c.picks[slot] ?? null;
-      const after = before === choice ? null : choice;
       const popOf = (pick) => (pick === null ? 0 : choices[pick].pop || 0);
       c.pop = Math.max(0, c.pop + popOf(after) - popOf(before));
       // A reward that gives a unit (Super Unit) adds it to your units, or takes it away.
       if (before !== null && choices[before].unit) removeLastUnit(choices[before].unit);
       if (after !== null && choices[after].unit) addUnit(choices[after].unit);
-      c.picks[slot] = after;
     });
+    if (after !== null && !city.setup) addLog(`${city.name} chose ${choices[after].name}`);
   } else if (act === "adjacent") {
     changeCity(index, (c) => (c.adjacent = Math.max(0, c.adjacent + Number(btn.dataset.step))));
   } else if (act === "rename") {
@@ -1274,13 +1399,15 @@ function onCityClick(e) {
     saveState();
     renderCities();
   } else if (act === "remove") {
-    const perGo = cityPerGo(city, index);
-    if (!confirm(`Remove ${city.name}? Your stars per go goes down by ${perGo}.`)) return;
+    // Captured by an enemy: you lose everything the city gave you per go, straight away.
+    const perGo = cityPerGo(city);
+    if (!confirm(`Lost ${city.name}? Your stars per go goes down by ${perGo}.`)) return;
     state.cities.splice(index, 1);
     state.perGo = Math.max(0, state.perGo - perGo);
+    addLog(`Lost ${city.name}: −${perGo} ★ per go`);
     saveState();
     renderStars();
-    toast(`${city.name} removed: −${perGo} ★ per go`);
+    toast(`${city.name} lost: −${perGo} ★ per go`);
   }
 }
 
@@ -1296,6 +1423,7 @@ function onGatehouseClick(e) {
   if (btn.dataset.act === "up") {
     gate.pop = popAfterLevelUp(gate.pop, GATEHOUSE_UPGRADE.pop);
     gate.level = GATEHOUSE_MAX_LEVEL;
+    addLog(`Gatehouse ${index + 1} reached level ${GATEHOUSE_MAX_LEVEL}`);
   } else if (btn.dataset.act === "pop") {
     gate.pop = Math.max(0, gate.pop + Number(btn.dataset.step));
   } else if (btn.dataset.act === "down") {
@@ -1314,21 +1442,32 @@ function cityCard(city, index) {
   for (let level = FIRST_REWARD_LEVEL; level <= city.level; level++) {
     rows.push(rewardRow(city, level));
   }
-  const remove = index === 0
-    ? ""
-    : `<button type="button" class="chip-btn remove" data-act="remove">Remove city</button>`;
+  const remove =
+    `<button type="button" class="chip-btn remove" data-act="remove">Lost this city</button>`;
   return (
     `<article class="level city" data-city="${index}"><header class="level-head">` +
     `<button type="button" class="city-name" data-act="rename" ` +
-    `aria-label="Rename ${city.name}">${index === 0 ? "👑 " : ""}${city.name} ` +
+    `aria-label="Rename ${city.name}">${city.capital ? "👑 " : ""}${city.name} ` +
     `<span aria-hidden="true">✎</span></button>` +
-    `<span class="pop-need">+${cityPerGo(city, index)} ★ per go</span></header>` +
-    `<div class="city-body"><div class="city-level-row">` +
+    `<span class="pop-need">+${cityPerGo(city)} ★ per go</span></header>` +
+    `<div class="city-body">${city.setup ? setupNote(city) : ""}<div class="city-level-row">` +
     `<button type="button" class="step small" data-act="down" aria-label="Level down"` +
     `${city.level <= START_CITY_LEVEL ? " disabled" : ""}>−</button>` +
     `<span class="city-level">Level <b>${city.level}</b></span>` +
     levelUpButton(city.pop >= next.pop) + `</div>${popMeter(city.pop, next.pop)}` +
     `${rows.join("")}${remove}</div></article>`
+  );
+}
+
+// Shown on a city you've just taken, until you tap Done.
+function setupNote(city) {
+  return (
+    `<div class="setup-note"><p><b>⚔️ Taken city:</b> set the level and rewards it already ` +
+    `had. Rewards it gave just once (stars, population, a Super Unit) don't come again.</p>` +
+    `<div class="setup-buttons">` +
+    `<button type="button" class="chip-btn${city.capital ? " on" : ""}" data-act="capital" ` +
+    `aria-pressed="${Boolean(city.capital)}">👑 It was a capital</button>` +
+    `<button type="button" class="btn small" data-act="done">Done</button></div></div>`
   );
 }
 
@@ -1381,7 +1520,9 @@ function millRow(city, choice) {
     `<div class="mill-count"><button type="button" class="step small" data-act="adjacent" ` +
     `data-step="-1" aria-label="One fewer">−</button>` +
     `<output class="mill-stars">${city.adjacent} ` +
-    `<small>= +${city.adjacent * choice.perAdjacent} ★ per go</small></output>` +
+    `<small>= +${rewardPerGo(choice, city)} ★ per go` +
+    `${city.adjacent * choice.perAdjacent > choice.maxPerGo ? " (the most)" : ""}</small>` +
+    `</output>` +
     `<button type="button" class="step small" data-act="adjacent" data-step="1" ` +
     `aria-label="One more">+</button></div></div>`
   );
@@ -1407,13 +1548,10 @@ function renderGatehouses() {
     ? `<button type="button" class="buy${state.stars < GATEHOUSE.cost ? " short" : ""}" ` +
       `data-act="build">Build a gatehouse &middot; ${GATEHOUSE.cost} ★</button>`
     : `<p class="muted">🔒 Research Gatehouse to build one.</p>`;
-  document.getElementById("gatehouse-list").innerHTML =
-    rows.join("") + `<p class="muted gate-rule">${GATEHOUSE.terrain}. ${GATEHOUSE.note}</p>` +
-    build;
+  document.getElementById("gatehouse-list").innerHTML = rows.join("") + build;
 }
 
 function renderCities() {
-  document.getElementById("city-stars-rule").textContent = STARS_PER_GO_RULE;
   document.getElementById("my-cities").innerHTML = state.cities.map(cityCard).join("");
   renderGatehouses();
   const reference = [...CITY_LEVELS, GATEHOUSE_UPGRADE];

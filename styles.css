@@ -302,8 +302,10 @@ h3 {
 }
 
 .tabs {
+  /* One equal column per tab, however many tabs there are. */
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   min-height: var(--tabbar-height);
   padding-bottom: env(safe-area-inset-bottom);
   background-color: var(--oak);
@@ -331,9 +333,9 @@ h3 {
 
 .tab-label {
   font-family: var(--title-font);
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 
 .tab.active {
@@ -1107,9 +1109,82 @@ button.pick:disabled:not(.chosen) {
   font-size: 0.95rem;
 }
 
-.win-rule {
+/* ---------- Rules page ---------- */
+.ruin-counter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.ruin-counter input {
+  width: 5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--oak);
+  border-radius: 6px;
+  background-color: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* ---------- Taking cities ---------- */
+.city-adds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.setup-note {
+  margin-bottom: 0.7rem;
+  padding: 0.5rem 0.6rem;
+  border: 2px dashed var(--tribe);
+  border-radius: 6px;
+  font-size: 0.92rem;
+}
+
+.setup-note p {
+  margin: 0 0 0.4rem;
+}
+
+.setup-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.setup-buttons .btn.small {
+  width: auto;
+  margin: 0 0 0 auto;
+  padding: 0.45rem 1.2rem;
+}
+
+.chip-btn.on {
+  border-color: var(--tribe);
+  background-color: var(--tribe);
+  color: var(--tribe-ink);
+}
+
+/* ---------- Game log ---------- */
+.game-log {
   margin: 0;
-  font-size: 1.05rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.92rem;
+}
+
+.game-log li {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--edge);
+}
+
+.log-round {
+  flex: 0 0 2.2rem;
+  color: var(--muted);
+  font-family: var(--title-font);
   font-weight: 700;
 }
 

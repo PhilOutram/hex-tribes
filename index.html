@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=Cinzel:wght@600;700&family=Uncial+Antiqua&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=0.12" />
+  <link rel="stylesheet" href="styles.css?v=0.13" />
 </head>
 <body>
   <section id="splash" class="splash" aria-label="Hex Tribes">
@@ -38,15 +38,15 @@
       <section class="page" id="page-home" data-title="Home">
         <h2>Choose your tribe</h2>
         <div id="tribes" class="tribes"></div>
-        <h2>How to win</h2>
-        <p id="win-rule" class="win-rule"></p>
         <h2>New game</h2>
         <p class="muted">Clears your research, cities and units. Everyone starts with 5 ★ and
           one Warrior. Your tribe is kept.</p>
         <button id="new-game" class="btn" type="button">Start a new game</button>
+        <button id="last-player" class="btn small" type="button" hidden></button>
         <h2>How to use</h2>
         <ul class="muted help">
           <li>Swipe left and right, or tap the tabs at the bottom, to change page.</li>
+          <li><b>Rules</b>: every rule of the game in one place.</li>
           <li><b>Research</b>: tap a skill to buy it. Its stars come off, it gets a ring in
             your colour and it opens the outer ring.</li>
           <li><b>Buildings</b> and <b>Units</b> show what your research has unlocked. Tap
@@ -54,9 +54,13 @@
           <li>Your stars are always shown on the banner at the top.</li>
           <li><b>Ruins</b>: roll the die when you explore a ruin.</li>
           <li><b>Units</b>: the units you have in play, with their health, at the top.</li>
-          <li><b>Tracker</b>: your stars and stars per go.</li>
+          <li><b>Tracker</b>: your stars, points, the go timer and the game log.</li>
         </ul>
         <div id="home-version" class="home-version"></div>
+      </section>
+
+      <section class="page" id="page-rules" data-title="Rules">
+        <div id="rules"></div>
       </section>
 
       <section class="page" id="page-research" data-title="Research">
@@ -73,10 +77,7 @@
       <section class="page" id="page-units" data-title="Units">
         <h2>Active units</h2>
         <div id="army" class="army"></div>
-        <section class="rules">
-          <h2>How combat works</h2>
-          <ul id="combat-rules" class="rules-list"></ul>
-        </section>
+        <p class="muted">How combat works is on the <b>Rules</b> page.</p>
         <h2>Units</h2>
         <div id="unit-list" class="cards"></div>
       </section>
@@ -93,16 +94,17 @@
       <section class="page" id="page-tracker" data-title="Tracker">
         <section id="go-timer" class="counter go-timer"></section>
         <div id="tracker" class="tracker"></div>
+        <h2>Game log</h2>
+        <ol id="game-log" class="game-log"></ol>
       </section>
 
       <section class="page" id="page-cities" data-title="Cities">
-        <section class="rules">
-          <h2>Stars per go</h2>
-          <p id="city-stars-rule" class="muted"></p>
-        </section>
         <h2>My cities</h2>
         <div id="my-cities"></div>
-        <button id="add-city" class="btn small" type="button">+ New city (built or taken)</button>
+        <div class="city-adds">
+          <button id="add-city" class="btn small" type="button">+ New city</button>
+          <button id="take-city" class="btn small" type="button">⚔️ Take a city</button>
+        </div>
         <h2>Gatehouses</h2>
         <div id="gatehouse-list"></div>
         <h2>Level rewards</h2>
@@ -115,6 +117,6 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="app.js?v=0.12" type="module"></script>
+  <script src="app.js?v=0.13" type="module"></script>
 </body>
 </html>

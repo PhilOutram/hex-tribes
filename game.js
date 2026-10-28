@@ -116,7 +116,7 @@ export const BUILDINGS = [
     pop: "1 for capital, 1 for town" },
   { name: "Gatehouse", icon: "🏰", research: "gatehouse", cost: GATEHOUSE_COST,
     terrain: "1 or 2 spaces from one of your cities",
-    pop: `${GATEHOUSE_LEVEL_2_POP} pop to reach level 2`,
+    pop: `From adjacent buildings: ${GATEHOUSE_LEVEL_2_POP} to reach level 2`,
     note: "Enemy units can't move onto it. At level 2, units can be trained on it. " +
       "It never gives stars per go." },
 ];
@@ -137,8 +137,16 @@ export const SUPER_UNIT_MAX_HP = 20;
 
 const STATIC_TEXT = "Static: can't move and then attack in the same go.";
 
+// Kill rewards: stars for each kill; this many kills makes a Veteran with extra max HP. The
+// Knight's Persist chains kills, so it needs more.
+export const KILL_STARS           = 1;
+export const VETERAN_KILLS        = 3;
+export const KNIGHT_VETERAN_KILLS = 5;
+export const VETERAN_HP           = 2;
+
 // Stats rebalanced on 2026-10-27 for Atk - Def damage (they were tuned for Atk / Def).
-// ability = rule text shown on the unit's card.
+// ability = rule text shown on the unit's card; vetKills = kills to become a Veteran, when
+// not the usual VETERAN_KILLS.
 export const UNITS = [
   { name: "Warrior", icon: "🪖", research: null, unlock: "Start unit",
     atk: 3, def: 1, hp: 4, cost: 2, move: 1, range: 1, atkBack: 2 },
@@ -152,6 +160,7 @@ export const UNITS = [
     atk: 4, def: 2, hp: 6, cost: 5, move: 1, range: 1, atkBack: 2 },
   { name: "Knight", icon: "🐎", research: "rider", tag: "Persist",
     ability: "Persist: after each kill it moves onto the space and may attack again.",
+    vetKills: KNIGHT_VETERAN_KILLS,
     atk: 5, def: 1, hp: 5, cost: 6, move: 3, range: 1, atkBack: 2 },
   { name: "Super Unit", icon: "🗿", research: null, unlock: "City level 5", tag: "Static",
     ability: STATIC_TEXT,
@@ -164,11 +173,6 @@ export const MIN_DAMAGE = 1;
 // Healing: a unit that rests (doesn't move or attack) for a go heals this much.
 export const REST_HEAL      = 1;
 export const CITY_REST_HEAL = 2;
-
-// Kill rewards: stars for each kill; this many kills makes a Veteran with extra max HP.
-export const KILL_STARS    = 1;
-export const VETERAN_KILLS = 3;
-export const VETERAN_HP    = 2;
 
 export const COMBAT_RULES = [
   `<b>Damage</b> = attacker's Atk − target's Def, always at least ${MIN_DAMAGE}.`,
@@ -184,31 +188,33 @@ export const COMBAT_RULES = [
   `<b>Healing:</b> a unit that doesn't move or attack on its go heals ${REST_HEAL} HP, or ` +
     `${CITY_REST_HEAL} HP in one of your cities. It never goes above full health.`,
   `<b>Kill rewards:</b> +${KILL_STARS} ★ for every enemy unit you kill. A unit with ` +
-    `${VETERAN_KILLS} kills becomes a <b>Veteran</b>: +${VETERAN_HP} max HP and fully ` +
-    "healed.",
+    `${VETERAN_KILLS} kills (a Knight needs ${KNIGHT_VETERAN_KILLS}) becomes a ` +
+    `<b>Veteran</b>: +${VETERAN_HP} max HP and fully healed.`,
   "<b>Example:</b> a Warrior (Atk 3) attacks a Defender (Def 2) and does 1 damage. The " +
     "Defender survives and hits back for 3 − 1 = 2.",
 ];
+
 // Stars per go: each city gives its level, and the capital gives this much extra.
 export const CITY_LEVEL_STARS    = 1;
 export const CAPITAL_EXTRA_STARS = 1;
 export const WORKSHOP_STARS      = 1;
 export const PARK_STARS          = 2;
 export const MEGA_MILL_STARS     = 1;
+export const MEGA_MILL_MAX_STARS = 3;
 export const RESOURCES_STARS     = 5;
 export const POPULATION_REWARD   = 3;
 
 export const STARS_PER_GO_RULE =
   "Each city gives stars per go equal to its level, like Polytopia. Your capital gives " +
-  `${CAPITAL_EXTRA_STARS} extra. Gatehouses give none. Keep your cities below up to date ` +
-  "and your stars per go follows.";
+  `${CAPITAL_EXTRA_STARS} extra. Gatehouses give none. Keep the Cities page up to date and ` +
+  "your stars per go follows.";
 
 // Round limit: after this many rounds the tribe with the most points wins. Points come from
 // city levels, researched skills (the free one too) and units still alive.
 export const ROUND_LIMIT       = 15;
 export const CITY_LEVEL_POINTS = 5;
 export const SKILL_POINTS      = 3;
-export const UNIT_POINTS       = 2;
+export const UNIT_POINTS       = 1;
 
 export const WIN_RULE =
   `Take over all the other tribes' cities - or, after ${ROUND_LIMIT} rounds, the tribe with ` +
@@ -216,26 +222,29 @@ export const WIN_RULE =
 
 export const SCORE_RULE =
   `${CITY_LEVEL_POINTS} points for each city level, ${SKILL_POINTS} for each researched ` +
-  `skill and ${UNIT_POINTS} for each unit still alive.`;
+  `skill and ${UNIT_POINTS} for each unit still alive at the end.`;
 
 // The go timer, for whoever is taking their go.
 export const GO_TIMER_SECONDS = 60;
 
-// Every tribe starts the game with these stars and this unit.
-export const START_STARS = 5;
-export const START_UNIT  = "Warrior";
+// Every tribe starts the game with these stars and this unit; the player going last gets a
+// little extra to make up for it.
+export const START_STARS       = 5;
+export const START_UNIT        = "Warrior";
+export const LAST_PLAYER_STARS = 1;
 
 // City upgrades: pop = population needed to reach the next level; pick one reward. The last
 // row repeats for every level from 5 up. perGo = stars per go the reward adds, stars = stars
-// it gives once, perAdjacent = stars per go for each adjacent building you count, pop =
-// population it adds to the city, unit = a unit it gives you.
+// it gives once, perAdjacent = stars per go for each adjacent building you count (maxPerGo
+// at most), pop = population it adds to the city, unit = a unit it gives you.
 export const CITY_LEVELS = [
   { from: "City level 1", to: "City level 2", pop: 2, choices: [
     { name: "Workshop", icon: "🔨", text: `+${WORKSHOP_STARS} ★ per go`,
       perGo: WORKSHOP_STARS },
     { name: "Mega mill", icon: "🏭",
-      text: `+${MEGA_MILL_STARS} ★ per go for each adjacent store house, market and quarry`,
-      perAdjacent: MEGA_MILL_STARS },
+      text: `+${MEGA_MILL_STARS} ★ per go for each adjacent store house, market and ` +
+        `quarry, up to +${MEGA_MILL_MAX_STARS}`,
+      perAdjacent: MEGA_MILL_STARS, maxPerGo: MEGA_MILL_MAX_STARS },
   ] },
   { from: "City level 2", to: "City level 3", pop: 3, choices: [
     { name: "Resources", icon: "💰", text: `+${RESOURCES_STARS} ★`, stars: RESOURCES_STARS },
@@ -259,6 +268,45 @@ export const GATEHOUSE_UPGRADE = {
     { name: "Training ground", icon: "⚔️", text: "Units can be trained on the gatehouse" },
   ],
 };
+
+// Ruins on the board: the number of hexes divided by this, rounded down.
+export const HEXES_PER_RUIN = 2;
+
+// Everything on the Rules page, section by section. ruinCount = show the ruins counter.
+export const RULE_SECTIONS = [
+  { title: "Starting the game", icon: "🚩", items: [
+    `Every tribe starts with ${START_STARS} ★, one ${START_UNIT} and its free starting ` +
+      "skill.",
+    `The player who goes last starts with +${LAST_PLAYER_STARS} ★, to make up for ` +
+      "going last.",
+    "<b>Tribe specials:</b> " +
+      TRIBES.map((t) => `${t.name}: ${t.special}`).join("; ") + ".",
+  ] },
+  { title: "How to win", icon: "👑", items: [
+    WIN_RULE,
+    `<b>Points:</b> ${SCORE_RULE}`,
+  ] },
+  { title: "Stars per go", icon: "⭐", items: [STARS_PER_GO_RULE] },
+  { title: "Combat", icon: "⚔️", items: COMBAT_RULES },
+  { title: "Cities", icon: "🏘️", items: [
+    "<b>Taking a city:</b> a unit has to stand on an enemy city for a whole go to take it.",
+    "A taken city keeps its level and rewards. The new owner gets all its bonuses and " +
+      "rewards, and the old owner loses them as soon as it is captured.",
+    "<b>Roads:</b> a road joining a town to your capital gives 1 population to the capital " +
+      "and 1 to the town.",
+  ] },
+  { title: "Gatehouses", icon: "🏰", items: [
+    "Build one 1 or 2 spaces from one of your cities. Enemy units can't move onto it.",
+    "Its population comes from the buildings next to it. At " +
+      `${GATEHOUSE_LEVEL_2_POP} population it reaches level 2, and units can be trained on it.`,
+    "A gatehouse never gives stars per go, even at level 2.",
+  ] },
+  { title: "Ruins", icon: "🎲", ruinCount: true, items: [
+    "A ruin tile disappears once it has been explored.",
+    `The number of ruins on the board is the number of hexes divided by ${HEXES_PER_RUIN}, ` +
+      "rounded down.",
+  ] },
+];
 
 // Ruins: roll a six-sided die. Rolls 1-2 give a unit, 3-4 a building, 5 stars and 6 a free
 // research skill. The building limit dropped from 3 to 2 with the cheaper buildings, so the
