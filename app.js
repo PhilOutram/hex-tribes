@@ -1,6 +1,6 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.11";
+import { VERSION, CHANGELOG } from "./version.js?v=0.12";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
@@ -8,7 +8,7 @@ import {
   STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE, START_STARS, START_UNIT, TRIBE_BONUS,
   REST_HEAL, CITY_REST_HEAL, KILL_STARS, VETERAN_KILLS, VETERAN_HP, ROUND_LIMIT,
   CITY_LEVEL_POINTS, SKILL_POINTS, UNIT_POINTS, SCORE_RULE, GO_TIMER_SECONDS,
-} from "./game.js?v=0.11";
+} from "./game.js?v=0.12";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.

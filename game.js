@@ -162,8 +162,8 @@ export const UNITS = [
 export const MIN_DAMAGE = 1;
 
 // Healing: a unit that rests (doesn't move or attack) for a go heals this much.
-export const REST_HEAL      = 2;
-export const CITY_REST_HEAL = 4;
+export const REST_HEAL      = 1;
+export const CITY_REST_HEAL = 2;
 
 // Kill rewards: stars for each kill; this many kills makes a Veteran with extra max HP.
 export const KILL_STARS    = 1;

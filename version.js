@@ -1,8 +1,15 @@
-export const VERSION = "v0.11";
+export const VERSION = "v0.12";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.12",
+    date: "2026-10-28",
+    notes: [
+      "Healing lowered: resting heals 1 HP, or 2 HP in one of your cities.",
+    ],
+  },
   {
     version: "v0.11",
     date: "2026-10-28",
