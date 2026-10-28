@@ -1,8 +1,17 @@
-export const VERSION = "v0.10";
+export const VERSION = "v0.11";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.11",
+    date: "2026-10-28",
+    notes: [
+      "15-round limit with points, a 60-second go timer, and a free skill on a ruin roll of 6.",
+      "Units can rest to heal; kills give +1 ★ and 3 kills make a Veteran.",
+      "Each tribe has a special bonus, shown on Home and on the unit cards.",
+    ],
+  },
   {
     version: "v0.10",
     date: "2026-10-28",

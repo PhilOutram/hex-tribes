@@ -1,12 +1,14 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.10";
+import { VERSION, CHANGELOG } from "./version.js?v=0.11";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
   RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
-  STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE, START_STARS, START_UNIT,
-} from "./game.js?v=0.10";
+  STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE, START_STARS, START_UNIT, TRIBE_BONUS,
+  REST_HEAL, CITY_REST_HEAL, KILL_STARS, VETERAN_KILLS, VETERAN_HP, ROUND_LIMIT,
+  CITY_LEVEL_POINTS, SKILL_POINTS, UNIT_POINTS, SCORE_RULE, GO_TIMER_SECONDS,
+} from "./game.js?v=0.11";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -73,6 +75,15 @@ const HOLD_SLOP_PX = 10;
 // A unit at or below this share of its health shows a red bar.
 const LOW_HEALTH_FRACTION = 0.5;
 
+// Go timer: how often the display updates, and the buzz and beep when time runs out.
+const TIMER_TICK_MS    = 250;
+const MS_PER_SECOND    = 1000;
+const SECONDS_PER_MIN  = 60;
+const TIMER_BUZZ       = [200, 100, 200];
+const TIMER_BEEP_HZ    = 880;
+const TIMER_BEEP_SECS  = 0.4;
+const TIMER_BEEP_LEVEL = 0.2;
+
 // Every research skill by key, with its parent (inner ring skills have none) and cost.
 const NODES = {};
 RESEARCH.forEach((branch) => {
@@ -111,6 +122,7 @@ renderArmy();
 renderCombatRules();
 renderRuins();
 renderTracker();
+setupGoTimer();
 renderCities();
 renderBanner();
 renderVersionBadge(document.body, "version-badge splash-version");
@@ -147,6 +159,8 @@ function defaultState() {
   return {
     tribe: DEFAULT_TRIBE,
     researched: [],
+    // Skills a ruin gave you for free: undoing them refunds nothing.
+    freeSkills: [],
     stars: START_STARS,
     perGo: cityPerGo(capital, 0),
     // Units in play: type = unit name, num = its number among units of that type.
@@ -260,7 +274,7 @@ function renderTribes() {
       `aria-pressed="${t.key === state.tribe}">` +
       `<span class="swatch" aria-hidden="true"></span>${t.name}` +
       `<span class="start-tech">${NODES[t.startTech].icon} ${NODES[t.startTech].name}` +
-      `</span></button>`
+      `</span><span class="special">${t.special}</span></button>`
   ).join("");
   box.onclick = (e) => {
     const btn = e.target.closest(".tribe");
@@ -275,7 +289,8 @@ function changeTribe(next) {
   if (next === old) return;
   const orphans = NODES[old.startTech].children.filter((c) => state.researched.includes(c.key));
   const boughtNext = state.researched.includes(next.startTech);
-  const refund = orphans.length * OUTER_COST + (boughtNext ? NODES[next.startTech].cost : 0);
+  const refund = orphans.reduce((sum, c) => sum + paidFor(c.key), 0) +
+    (boughtNext ? paidFor(next.startTech) : 0);
   if (orphans.length) {
     const names = orphans.map((c) => c.name).join(", ");
     const ask = `Change to ${next.name}? You lose the free ${NODES[old.startTech].name}, ` +
@@ -284,8 +299,12 @@ function changeTribe(next) {
   }
   const drop = [next.startTech, ...orphans.map((c) => c.key)];
   state.researched = state.researched.filter((k) => !drop.includes(k));
+  state.freeSkills = state.freeSkills.filter((k) => !drop.includes(k));
   state.stars += refund;
+  // Units at full health stay full when the tribe bonus changes their max HP.
+  const wasFull = state.army.map((s) => s.hp >= maxHp(s));
   state.tribe = next.key;
+  state.army.forEach((s, i) => (s.hp = wasFull[i] ? maxHp(s) : Math.min(s.hp, maxHp(s))));
   saveState();
   applyTribe();
   renderTribes();
@@ -301,6 +320,8 @@ function newGame() {
   if (!confirm(ask)) return;
   const keep = { tribe: state.tribe, page: state.page };
   Object.assign(state, defaultState(), keep);
+  // The starting unit gets your tribe's bonus health, if it has one.
+  state.army.forEach((s) => (s.hp = maxHp(s)));
   saveState();
   bannerStars = state.stars;
   renderTree();
@@ -346,7 +367,7 @@ function renderTree() {
     `<text class="centre-count" y="5">${done}/${NODE_COUNT}</text>` +
     nodes.join("");
 
-  const spent = state.researched.reduce((sum, key) => sum + NODES[key].cost, 0);
+  const spent = state.researched.reduce((sum, key) => sum + paidFor(key), 0);
   document.getElementById("research-summary").innerHTML =
     `Researched <b>${done}</b> of ${NODE_COUNT} &middot; <b>${spent} ★</b> spent<br />` +
     `${tribe().name} start with ${NODES[tribe().startTech].name}, free`;
@@ -499,6 +520,11 @@ function treeNode(skill, at, labelAbove) {
   );
 }
 
+// Stars actually paid for a researched skill: none if a ruin gave it free.
+function paidFor(key) {
+  return state.freeSkills.includes(key) ? 0 : NODES[key].cost;
+}
+
 function toggleResearch(key) {
   const node = NODES[key];
   if (key === tribe().startTech) {
@@ -510,10 +536,11 @@ function toggleResearch(key) {
     const also = children.length
       ? ` This also undoes ${children.map((c) => c.name).join(", ")}.`
       : "";
-    const refund = node.cost + children.length * OUTER_COST;
-    if (!confirm(`Undo ${node.name}?${also} You get ${refund} ★ back.`)) return;
     const drop = [key, ...children.map((c) => c.key)];
+    const refund = drop.reduce((sum, k) => sum + paidFor(k), 0);
+    if (!confirm(`Undo ${node.name}?${also} You get ${refund} ★ back.`)) return;
     state.researched = state.researched.filter((k) => !drop.includes(k));
+    state.freeSkills = state.freeSkills.filter((k) => !drop.includes(k));
     state.stars += refund;
   } else if (node.parent && !isResearched(node.parent)) {
     toast(`Research ${NODES[node.parent].name} first`);
@@ -592,10 +619,16 @@ function renderBuildings() {
 }
 
 function renderUnits() {
+  const bonus = tribe().bonus;
   document.getElementById("unit-list").innerHTML = UNITS.map((u, i) => {
-    const stats = UNIT_STATS.map(
-      (s) => `<div class="stat"><dt>${s.label}</dt><dd>${statText(u[s.key])}</dd></div>`
-    ).join("");
+    const stats = UNIT_STATS.map((s) => {
+      // Your tribe's bonus stat is shown raised, in your colour.
+      const boosted = bonus.unit === u.name && bonus.stat === s.key;
+      return (
+        `<div class="stat${boosted ? " boosted" : ""}"><dt>${s.label}</dt>` +
+        `<dd>${statText(unitStats(u)[s.key])}</dd></div>`
+      );
+    }).join("");
     const tag = u.tag ? `<span class="chip tag">${u.tag}</span>` : "";
     const ability = u.ability ? `<p class="ability">${u.ability}</p>` : "";
     return (
@@ -609,10 +642,26 @@ function renderUnits() {
 
 // ---------- Active units ----------
 
+// A unit's stats with your tribe's bonus added.
+function unitStats(unit) {
+  const bonus = tribe().bonus;
+  if (bonus.unit !== unit.name) return unit;
+  return { ...unit, [bonus.stat]: unit[bonus.stat] + TRIBE_BONUS };
+}
+
+function isVeteran(soldier) {
+  return (soldier.kills || 0) >= VETERAN_KILLS;
+}
+
+function maxHp(soldier) {
+  return unitStats(UNIT_BY_NAME[soldier.type]).hp + (isVeteran(soldier) ? VETERAN_HP : 0);
+}
+
 // Puts a unit in play at full health and returns it.
 function addUnit(type) {
   state.unitCounts[type] = (state.unitCounts[type] || 0) + 1;
-  const soldier = { type, num: state.unitCounts[type], hp: UNIT_BY_NAME[type].hp };
+  const soldier = { type, num: state.unitCounts[type], hp: 0, kills: 0 };
+  soldier.hp = maxHp(soldier);
   state.army.push(soldier);
   return soldier;
 }
@@ -629,20 +678,30 @@ function unitLabel(soldier) {
 function renderArmy() {
   const rows = state.army.map((s, i) => {
     const unit = UNIT_BY_NAME[s.type];
-    const fraction = s.hp / unit.hp;
+    const max = maxHp(s);
+    const fraction = s.hp / max;
     const health = fraction >= 1 ? "full" : fraction > LOW_HEALTH_FRACTION ? "hurt" : "low";
+    const kills = s.kills || 0;
+    const veteran = isVeteran(s) ? `<span class="veteran">⭐ Veteran</span>` : "";
     return (
       `<div class="soldier ${health}" data-unit="${i}">` +
       `<span class="unit-icon" aria-hidden="true">${unit.icon}</span>` +
-      `<div class="soldier-hp"><b>${unitLabel(s)}</b><div class="hp-line">` +
+      `<div class="soldier-hp"><b>${unitLabel(s)}</b>${veteran}<div class="hp-line">` +
       `<div class="hp-bar"><div class="hp-fill" style="width: ${fraction * 100}%"></div>` +
-      `</div><span><b>${s.hp}</b>/${unit.hp}</span></div></div>` +
+      `</div><span><b>${s.hp}</b>/${max}</span></div></div>` +
       `<button type="button" class="step small" data-act="hp" data-step="-1" ` +
       `aria-label="${unitLabel(s)} loses 1 health">−</button>` +
       `<button type="button" class="step small" data-act="hp" data-step="1" ` +
       `aria-label="${unitLabel(s)} gains 1 health">+</button>` +
       `<button type="button" class="chip-btn" data-act="remove" ` +
-      `aria-label="Remove ${unitLabel(s)}">✕</button></div>`
+      `aria-label="Remove ${unitLabel(s)}">✕</button>` +
+      `<div class="soldier-actions">` +
+      `<button type="button" class="chip-btn" data-act="heal" data-step="${REST_HEAL}">` +
+      `🩹 Rest +${REST_HEAL}</button>` +
+      `<button type="button" class="chip-btn" data-act="heal" data-step="${CITY_REST_HEAL}">` +
+      `🏘️ Rest in city +${CITY_REST_HEAL}</button>` +
+      `<button type="button" class="chip-btn" data-act="kill">` +
+      `⚔️ Kill${kills ? ` (${kills})` : ""}</button></div></div>`
     );
   });
   const empty = `<p class="muted">No units in play yet. Training a unit below adds it here.</p>`;
@@ -669,9 +728,12 @@ function onArmyClick(e) {
   }
   const index = Number(btn.closest(".soldier").dataset.unit);
   const soldier = state.army[index];
-  const max = UNIT_BY_NAME[soldier.type].hp;
-  if (btn.dataset.act === "hp") {
-    soldier.hp = Math.min(max, soldier.hp + Number(btn.dataset.step));
+  if (btn.dataset.act === "kill") {
+    recordKill(soldier);
+    return;
+  }
+  if (btn.dataset.act === "hp" || btn.dataset.act === "heal") {
+    soldier.hp = Math.min(maxHp(soldier), soldier.hp + Number(btn.dataset.step));
   }
   // At 0 health, or removed by hand, the unit leaves play - with Undo in case of a slip.
   if (btn.dataset.act === "remove" || soldier.hp <= 0) {
@@ -686,6 +748,27 @@ function onArmyClick(e) {
   }
   saveState();
   renderArmy();
+}
+
+// A kill earns stars; enough kills make the unit a Veteran, fully healed with more max HP.
+function recordKill(soldier) {
+  const hpBefore = soldier.hp;
+  soldier.kills = (soldier.kills || 0) + 1;
+  state.stars += KILL_STARS;
+  const promoted = soldier.kills === VETERAN_KILLS;
+  if (promoted) soldier.hp = maxHp(soldier);
+  saveState();
+  renderStars();
+  const text = promoted
+    ? `${unitLabel(soldier)} is a Veteran! +${VETERAN_HP} max HP, +${KILL_STARS} ★`
+    : `${unitLabel(soldier)} kill: +${KILL_STARS} ★`;
+  toast(text, "Undo", () => {
+    soldier.kills -= 1;
+    soldier.hp = Math.min(hpBefore, maxHp(soldier));
+    state.stars = Math.max(0, state.stars - KILL_STARS);
+    saveState();
+    renderStars();
+  });
 }
 
 function renderCombatRules() {
@@ -760,8 +843,14 @@ function showRuinResult(face) {
     body = unitPicks(UNITS.filter((u) => u.cost !== null && u.cost <= RUIN_MAX_UNIT_COST));
   } else if (outcome.kind === "building") {
     body = pickList(BUILDINGS.filter((b) => b.cost <= RUIN_MAX_BUILDING_COST));
+  } else if (outcome.kind === "research" && reachableSkills().length) {
+    body = skillPicks(reachableSkills());
   } else {
-    body = `<button type="button" id="claim-stars" class="btn">` +
+    // Stars, or the free skill roll when every skill is already researched.
+    const instead = outcome.kind === "research"
+      ? `<p class="muted">You have every skill you can reach - take stars instead.</p>`
+      : "";
+    body = `${instead}<button type="button" id="claim-stars" class="btn">` +
       `Add ${RUIN_STARS} ★ to my stars</button>`;
   }
 
@@ -796,16 +885,43 @@ function unitPicks(units) {
   );
 }
 
+// Skills you could research next: not yet researched, with their inner skill done.
+function reachableSkills() {
+  return Object.values(NODES).filter(
+    (n) => !isResearched(n.key) && (!n.parent || isResearched(n.parent))
+  );
+}
+
+function skillPicks(skills) {
+  return (
+    `<p class="muted">Tap the skill you want:</p><div class="pick-list">` +
+    skills.map(
+      (n) =>
+        `<button type="button" class="pick" data-ruin-skill="${n.key}">` +
+        `<span aria-hidden="true">${n.icon}</span> ${n.name}</button>`
+    ).join("") +
+    `</div>`
+  );
+}
+
+// A ruin unit joins your active units; a ruin skill is researched for free. One per roll.
 function onRuinPick(e) {
-  const btn = e.target.closest("[data-ruin-unit]");
+  const btn = e.target.closest("[data-ruin-unit], [data-ruin-skill]");
   if (!btn || btn.disabled) return;
-  const soldier = addUnit(btn.dataset.ruinUnit);
+  let done = "";
+  if (btn.dataset.ruinUnit) {
+    done = `${unitLabel(addUnit(btn.dataset.ruinUnit))} added to your active units.`;
+  } else {
+    state.researched.push(btn.dataset.ruinSkill);
+    state.freeSkills.push(btn.dataset.ruinSkill);
+    done = `${NODES[btn.dataset.ruinSkill].name} researched for free.`;
+    renderTree();
+  }
   saveState();
-  renderArmy();
+  renderStars();
   btn.classList.add("chosen");
   btn.closest(".pick-list").querySelectorAll(".pick").forEach((b) => (b.disabled = true));
-  btn.closest(".pick-list").insertAdjacentHTML("afterend",
-    `<p class="ruin-added">${unitLabel(soldier)} added to your active units.</p>`);
+  btn.closest(".pick-list").insertAdjacentHTML("afterend", `<p class="ruin-added">${done}</p>`);
 }
 
 // The buildings a ruin roll lets you choose from.
@@ -836,8 +952,8 @@ function renderTracker() {
     `</div></section>` +
     `<section class="counter"><h2>Stars per go</h2>${counterRow("perGo", state.perGo, "★")}` +
     `</section>` +
-    `<button type="button" class="btn big" data-action="next-go">` +
-    `End go ${state.go}: collect +${state.perGo} ★</button>`;
+    endRoundButton() +
+    scoreSection();
 
   box.onclick = (e) => {
     const btn = e.target.closest("button");
@@ -845,13 +961,138 @@ function renderTracker() {
     if (btn.dataset.field) {
       changeCounter(btn.dataset.field, Number(btn.dataset.step));
     } else if (btn.dataset.action === "next-go") {
-      state.stars += state.perGo;
-      state.go += 1;
-      toast(`+${state.perGo} ★ - now ${state.stars} ★`);
+      endRound();
     }
     saveState();
     renderStars();
   };
+}
+
+function isGameOver() {
+  return state.go > ROUND_LIMIT;
+}
+
+// state.go counts rounds; ending the last one ends the game.
+function endRoundButton() {
+  if (isGameOver()) {
+    return `<button type="button" class="btn big" disabled>` +
+      `Game over after ${ROUND_LIMIT} rounds</button>`;
+  }
+  return (
+    `<button type="button" class="btn big" data-action="next-go">` +
+    `End round ${state.go} of ${ROUND_LIMIT}: collect +${state.perGo} ★</button>`
+  );
+}
+
+function endRound() {
+  state.stars += state.perGo;
+  state.go += 1;
+  if (isGameOver()) {
+    toast(`Game over! You scored ${score().total} points`);
+  } else if (state.go === ROUND_LIMIT) {
+    toast(`Last round! +${state.perGo} ★ - now ${state.stars} ★`);
+  } else {
+    toast(`+${state.perGo} ★ - now ${state.stars} ★`);
+  }
+}
+
+function score() {
+  const levels = state.cities.reduce((sum, c) => sum + c.level, 0);
+  const skills = Object.keys(NODES).filter(isResearched).length;
+  const units = state.army.length;
+  const rows = [
+    { label: "City levels", count: levels, each: CITY_LEVEL_POINTS },
+    { label: "Skills researched", count: skills, each: SKILL_POINTS },
+    { label: "Units alive", count: units, each: UNIT_POINTS },
+  ];
+  return { rows, total: rows.reduce((sum, r) => sum + r.count * r.each, 0) };
+}
+
+function scoreSection() {
+  const { rows, total } = score();
+  const round = isGameOver() ? "Final score" : `Round ${state.go} of ${ROUND_LIMIT}`;
+  return (
+    `<section class="counter score"><h2>Points</h2>` +
+    `<p class="score-total">${total}<small>points &middot; ${round}</small></p>` +
+    `<dl class="score-rows">` +
+    rows.map(
+      (r) =>
+        `<div><dt>${r.label}</dt><dd>${r.count} &times; ${r.each} = ` +
+        `<b>${r.count * r.each}</b></dd></div>`
+    ).join("") +
+    `</dl><p class="muted score-rule">${SCORE_RULE}</p></section>`
+  );
+}
+
+// ---------- Go timer ----------
+
+// A countdown for whoever is taking their go. It lives outside the tracker's re-rendered
+// panel, so it keeps running while stars change.
+function setupGoTimer() {
+  const box = document.getElementById("go-timer");
+  let left = GO_TIMER_SECONDS * MS_PER_SECOND;
+  let endsAt = 0;
+  let ticker = 0;
+  const show = () => {
+    const secs = Math.ceil(left / MS_PER_SECOND);
+    const text = `${Math.floor(secs / SECONDS_PER_MIN)}:` +
+      `${String(secs % SECONDS_PER_MIN).padStart(2, "0")}`;
+    box.querySelector(".timer-time").textContent = text;
+    box.querySelector("[data-timer=start]").textContent = ticker ? "Pause" : "Start";
+    box.classList.toggle("running", Boolean(ticker));
+    box.classList.toggle("done", left <= 0);
+  };
+  const stop = () => {
+    clearInterval(ticker);
+    ticker = 0;
+  };
+  const tick = () => {
+    left = Math.max(0, endsAt - Date.now());
+    if (left <= 0) {
+      stop();
+      timeUp();
+    }
+    show();
+  };
+  box.innerHTML =
+    `<h2>Go timer</h2><p class="timer-time"></p><div class="timer-buttons">` +
+    `<button type="button" class="btn" data-timer="start"></button>` +
+    `<button type="button" class="btn" data-timer="reset">Reset</button></div>`;
+  box.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-timer]");
+    if (!btn) return;
+    if (btn.dataset.timer === "reset") {
+      stop();
+      left = GO_TIMER_SECONDS * MS_PER_SECOND;
+    } else if (ticker) {
+      stop();
+    } else {
+      if (left <= 0) left = GO_TIMER_SECONDS * MS_PER_SECOND;
+      endsAt = Date.now() + left;
+      ticker = setInterval(tick, TIMER_TICK_MS);
+    }
+    show();
+  });
+  show();
+}
+
+// Time's up: buzz the phone and beep, where the phone allows it.
+function timeUp() {
+  toast("Time's up - next player!");
+  if (navigator.vibrate) navigator.vibrate(TIMER_BUZZ);
+  try {
+    const audio = new AudioContext();
+    const beep = audio.createOscillator();
+    const volume = audio.createGain();
+    beep.frequency.value = TIMER_BEEP_HZ;
+    volume.gain.value = TIMER_BEEP_LEVEL;
+    beep.connect(volume).connect(audio.destination);
+    beep.onended = () => audio.close();
+    beep.start();
+    beep.stop(audio.currentTime + TIMER_BEEP_SECS);
+  } catch {
+    // No sound on this device: the buzz and the message still show.
+  }
 }
 
 function counterRow(field, value, unit) {
@@ -976,6 +1217,7 @@ function changeCity(index, change) {
 function addCity() {
   state.cityCount += 1;
   const city = newCity(`City ${state.cityCount}`);
+  if (tribe().bonus.cityPop) city.pop = TRIBE_BONUS;
   state.cities.push(city);
   const perGo = cityPerGo(city, state.cities.length - 1);
   state.perGo += perGo;

@@ -1,14 +1,23 @@
 // Game data, copied from the hand-drawn cardboard sheets: research tree, buildings table,
 // units table, star tracker and city level upgrades.
 
+// Each tribe's special bonus adds this much to one stat.
+export const TRIBE_BONUS = 1;
+
 // ink = text colour that reads clearly on top of the tribe colour; startTech = the inner ring
-// skill the tribe starts with, free. Oumaji's Riding is the Explorer branch here.
+// skill the tribe starts with, free (Oumaji's Riding is the Explorer branch here); special =
+// its bonus in words; bonus = the unit stat it raises, or cityPop for population in new
+// cities.
 export const TRIBES = [
-  { key: "red", name: "Xin-xi", colour: "#d93a2b", ink: "#fff", startTech: "climbing" },
-  { key: "yellow", name: "Oumaji", colour: "#e8b10c", ink: "#2b1d0e", startTech: "explorer" },
+  { key: "red", name: "Xin-xi", colour: "#d93a2b", ink: "#fff", startTech: "climbing",
+    special: `Warriors have +${TRIBE_BONUS} HP`, bonus: { unit: "Warrior", stat: "hp" } },
+  { key: "yellow", name: "Oumaji", colour: "#e8b10c", ink: "#2b1d0e", startTech: "explorer",
+    special: `Explorers move +${TRIBE_BONUS}`, bonus: { unit: "Explorer", stat: "move" } },
   { key: "blue", name: "Imperius", colour: "#2a6fd6", ink: "#fff",
-    startTech: "organization" },
-  { key: "green", name: "Bardur", colour: "#2f9a45", ink: "#fff", startTech: "hunting" },
+    startTech: "organization",
+    special: `New cities start with ${TRIBE_BONUS} population`, bonus: { cityPop: true } },
+  { key: "green", name: "Bardur", colour: "#2f9a45", ink: "#fff", startTech: "hunting",
+    special: `Archers have +${TRIBE_BONUS} range`, bonus: { unit: "Archer", stat: "range" } },
 ];
 
 // Research and building prices were lowered on 2026-10-27: the family test game grew too
@@ -152,6 +161,15 @@ export const UNITS = [
 // Combat: damage is Atk minus Def, but never less than this.
 export const MIN_DAMAGE = 1;
 
+// Healing: a unit that rests (doesn't move or attack) for a go heals this much.
+export const REST_HEAL      = 2;
+export const CITY_REST_HEAL = 4;
+
+// Kill rewards: stars for each kill; this many kills makes a Veteran with extra max HP.
+export const KILL_STARS    = 1;
+export const VETERAN_KILLS = 3;
+export const VETERAN_HP    = 2;
+
 export const COMBAT_RULES = [
   `<b>Damage</b> = attacker's Atk − target's Def, always at least ${MIN_DAMAGE}.`,
   "<b>Hitting back:</b> if the target survives, it hits the attacker with its Atk bak − " +
@@ -163,6 +181,11 @@ export const COMBAT_RULES = [
   "<b>Static</b> (Defender, Super Unit): can't move and then attack in the same go.",
   "<b>Persist</b> (Knight): it moves once, but after each kill it moves onto the space and " +
     "may attack again. It keeps going as long as it keeps killing.",
+  `<b>Healing:</b> a unit that doesn't move or attack on its go heals ${REST_HEAL} HP, or ` +
+    `${CITY_REST_HEAL} HP in one of your cities. It never goes above full health.`,
+  `<b>Kill rewards:</b> +${KILL_STARS} ★ for every enemy unit you kill. A unit with ` +
+    `${VETERAN_KILLS} kills becomes a <b>Veteran</b>: +${VETERAN_HP} max HP and fully ` +
+    "healed.",
   "<b>Example:</b> a Warrior (Atk 3) attacks a Defender (Def 2) and does 1 damage. The " +
     "Defender survives and hits back for 3 − 1 = 2.",
 ];
@@ -180,7 +203,23 @@ export const STARS_PER_GO_RULE =
   `${CAPITAL_EXTRA_STARS} extra. Gatehouses give none. Keep your cities below up to date ` +
   "and your stars per go follows.";
 
-export const WIN_RULE = "Take over all the other tribes' cities.";
+// Round limit: after this many rounds the tribe with the most points wins. Points come from
+// city levels, researched skills (the free one too) and units still alive.
+export const ROUND_LIMIT       = 15;
+export const CITY_LEVEL_POINTS = 5;
+export const SKILL_POINTS      = 3;
+export const UNIT_POINTS       = 2;
+
+export const WIN_RULE =
+  `Take over all the other tribes' cities - or, after ${ROUND_LIMIT} rounds, the tribe with ` +
+  "the most points wins.";
+
+export const SCORE_RULE =
+  `${CITY_LEVEL_POINTS} points for each city level, ${SKILL_POINTS} for each researched ` +
+  `skill and ${UNIT_POINTS} for each unit still alive.`;
+
+// The go timer, for whoever is taking their go.
+export const GO_TIMER_SECONDS = 60;
 
 // Every tribe starts the game with these stars and this unit.
 export const START_STARS = 5;
@@ -221,9 +260,9 @@ export const GATEHOUSE_UPGRADE = {
   ],
 };
 
-// Ruins: roll a six-sided die. Rolls 1-2 give a unit, 3-4 a building, 5-6 stars. The
-// building limit dropped from 3 to 2 with the cheaper buildings, so the same four
-// (Organize, Hunt, Lumber hut, Road) are still on offer.
+// Ruins: roll a six-sided die. Rolls 1-2 give a unit, 3-4 a building, 5 stars and 6 a free
+// research skill. The building limit dropped from 3 to 2 with the cheaper buildings, so the
+// same four (Organize, Hunt, Lumber hut, Road) are still on offer.
 export const DIE_FACES = 6;
 export const RUIN_MAX_UNIT_COST = 3;
 export const RUIN_MAX_BUILDING_COST = 2;
@@ -234,6 +273,8 @@ export const RUIN_OUTCOMES = [
     text: `Any unit costing up to ${RUIN_MAX_UNIT_COST} ★` },
   { rolls: [3, 4], kind: "building", icon: "🔨", title: "A building",
     text: `Any building costing up to ${RUIN_MAX_BUILDING_COST} ★` },
-  { rolls: [5, 6], kind: "stars", icon: "⭐", title: `${RUIN_STARS} stars`,
+  { rolls: [5], kind: "stars", icon: "⭐", title: `${RUIN_STARS} stars`,
     text: `+${RUIN_STARS} ★ to spend` },
+  { rolls: [6], kind: "research", icon: "📜", title: "A free skill",
+    text: "Research any skill you can reach, for free" },
 ];

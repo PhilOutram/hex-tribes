@@ -479,6 +479,14 @@ h3 {
   color: var(--muted);
 }
 
+.special {
+  font-family: var(--body-font);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
 .tribe.chosen::after {
   content: "✓ Chosen";
   font-size: 0.7rem;
@@ -779,6 +787,16 @@ h3 {
   margin: 0;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* A stat raised by your tribe's bonus. */
+.stat.boosted {
+  background-color: var(--tribe);
+}
+
+.stat.boosted dt,
+.stat.boosted dd {
+  color: var(--tribe-ink);
 }
 
 .buy {
@@ -1377,6 +1395,97 @@ button.pick:disabled:not(.chosen) {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.soldier-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.soldier-actions .chip-btn {
+  font-size: 0.85rem;
+}
+
+.veteran {
+  margin-left: 0.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background-color: var(--gold);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ---------- Score and go timer ---------- */
+.score-total {
+  margin: 0;
+  text-align: center;
+  font-family: var(--title-font);
+  font-size: 2.6rem;
+  font-weight: 700;
+}
+
+.score-total small {
+  display: block;
+  font-family: var(--body-font);
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.score-rows {
+  margin: 0.5rem 0 0;
+}
+
+.score-rows div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed var(--edge);
+}
+
+.score-rows dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-rule {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+.timer-time {
+  margin: 0;
+  text-align: center;
+  font-family: var(--title-font);
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.go-timer.running {
+  border-color: var(--tribe);
+  box-shadow: 0 0 0 2px var(--tribe);
+}
+
+/* Time's up: the timer flashes red until it is reset or started again. */
+.go-timer.done .timer-time {
+  color: var(--wound);
+  animation: timer-flash 0.6s steps(2) infinite;
+}
+
+@keyframes timer-flash {
+  50% {
+    opacity: 0.3;
+  }
 }
 
 /* ---------- Toast ---------- */
