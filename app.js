@@ -1,12 +1,12 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.06";
+import { VERSION, CHANGELOG } from "./version.js?v=0.07";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   SUPER_UNIT_MAX_HP, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
   RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
   STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE,
-} from "./game.js?v=0.06";
+} from "./game.js?v=0.07";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -150,6 +150,8 @@ function loadState() {
     const saved = { ...defaultState(), ...JSON.parse(localStorage.getItem(STORE_KEY)) };
     // Drop research saved under a skill that has since been renamed or removed.
     saved.researched = saved.researched.filter((key) => key in NODES);
+    // Cities and gatehouses saved before population was tracked start from none.
+    [...saved.cities, ...saved.gatehouses].forEach((place) => (place.pop ??= 0));
     return saved;
   } catch {
     return defaultState();
@@ -164,8 +166,9 @@ function saveState() {
   }
 }
 
+// Bought research, plus the skill your tribe starts with for free.
 function isResearched(key) {
-  return state.researched.includes(key);
+  return state.researched.includes(key) || key === tribe().startTech;
 }
 
 function tribe() {
@@ -239,16 +242,41 @@ function renderTribes() {
       `<button type="button" class="tribe${t.key === state.tribe ? " chosen" : ""}" ` +
       `data-tribe="${t.key}" style="--swatch: ${t.colour}" ` +
       `aria-pressed="${t.key === state.tribe}">` +
-      `<span class="swatch" aria-hidden="true"></span>${t.name}</button>`
+      `<span class="swatch" aria-hidden="true"></span>${t.name}` +
+      `<span class="start-tech">${NODES[t.startTech].icon} ${NODES[t.startTech].name}` +
+      `</span></button>`
   ).join("");
   box.onclick = (e) => {
     const btn = e.target.closest(".tribe");
-    if (!btn) return;
-    state.tribe = btn.dataset.tribe;
-    saveState();
-    applyTribe();
-    renderTribes();
+    if (btn) changeTribe(TRIBES.find((t) => t.key === btn.dataset.tribe));
   };
+}
+
+// Swaps the free starting skill. Outer skills bought under the old free skill lose their
+// way in, so they are undone and refunded; the new free skill is refunded if it was bought.
+function changeTribe(next) {
+  const old = tribe();
+  if (next === old) return;
+  const orphans = NODES[old.startTech].children.filter((c) => state.researched.includes(c.key));
+  const boughtNext = state.researched.includes(next.startTech);
+  const refund = orphans.length * OUTER_COST + (boughtNext ? NODES[next.startTech].cost : 0);
+  if (orphans.length) {
+    const names = orphans.map((c) => c.name).join(", ");
+    const ask = `Change to ${next.name}? You lose the free ${NODES[old.startTech].name}, ` +
+      `so ${names} ${orphans.length === 1 ? "is" : "are"} undone. You get ${refund} ★ back.`;
+    if (!confirm(ask)) return;
+  }
+  const drop = [next.startTech, ...orphans.map((c) => c.key)];
+  state.researched = state.researched.filter((k) => !drop.includes(k));
+  state.stars += refund;
+  state.tribe = next.key;
+  saveState();
+  applyTribe();
+  renderTribes();
+  renderTree();
+  renderStars();
+  toast(`${next.name}: free ${NODES[next.startTech].name}` +
+    (refund ? `, +${refund} ★ back` : ""));
 }
 
 function newGame() {
@@ -289,7 +317,7 @@ function renderTree() {
     nodes.push(treeNode(branch, inner, false));
   });
 
-  const done = state.researched.length;
+  const done = Object.keys(NODES).filter(isResearched).length;
   const innerLabel = polar(INNER_RADIUS, COST_LABEL_ANGLE);
   const outerLabel = polar(OUTER_COST_RADIUS, COST_LABEL_ANGLE);
   svg.innerHTML =
@@ -316,7 +344,8 @@ function renderTree() {
 
   const spent = state.researched.reduce((sum, key) => sum + NODES[key].cost, 0);
   document.getElementById("research-summary").innerHTML =
-    `Researched <b>${done}</b> of ${NODE_COUNT} &middot; <b>${spent} ★</b> spent`;
+    `Researched <b>${done}</b> of ${NODE_COUNT} &middot; <b>${spent} ★</b> spent<br />` +
+    `${tribe().name} start with ${NODES[tribe().startTech].name}, free`;
 }
 
 function line(from, to, open) {
@@ -347,6 +376,10 @@ function treeNode(skill, at, labelAbove) {
 
 function toggleResearch(key) {
   const node = NODES[key];
+  if (key === tribe().startTech) {
+    toast(`${tribe().name} start with ${node.name} - it can't be undone`);
+    return;
+  }
   if (isResearched(key)) {
     const children = (node.children || []).filter((c) => isResearched(c.key));
     const also = children.length
@@ -404,7 +437,7 @@ function buyFrom(e, items, done) {
 function buy(item, done) {
   if (!spend(item.cost, item.name)) return;
   const isGatehouse = item === GATEHOUSE;
-  if (isGatehouse) state.gatehouses.push({ level: START_CITY_LEVEL });
+  if (isGatehouse) state.gatehouses.push({ level: START_CITY_LEVEL, pop: 0 });
   saveState();
   renderStars();
   toast(`${done} ${item.name}: −${item.cost} ★`, "Undo", () => {
@@ -653,9 +686,15 @@ function renderStars() {
 // ---------- City levels ----------
 
 // picks[i] = which reward the city chose on reaching level i + 2 (null = not chosen yet);
-// adjacent = store houses, markets and quarries next to its Mega mill.
+// adjacent = store houses, markets and quarries next to its Mega mill; pop = population
+// towards the next level.
 function newCity(name) {
-  return { name, level: START_CITY_LEVEL, picks: [], adjacent: 0 };
+  return { name, level: START_CITY_LEVEL, picks: [], adjacent: 0, pop: 0 };
+}
+
+// Population left over after levelling up carries on towards the next level.
+function popAfterLevelUp(pop, need) {
+  return Math.max(0, pop - need);
 }
 
 // The row of rewards a city chooses from on reaching this level. The last row repeats.
@@ -726,7 +765,17 @@ function onCityClick(e) {
   const city = state.cities[index];
   const act = btn.dataset.act;
   if (act === "up") {
-    changeCity(index, (c) => (c.level += 1));
+    changeCity(index, (c) => {
+      c.pop = popAfterLevelUp(c.pop, tierFor(c.level + 1).pop);
+      c.level += 1;
+    });
+  } else if (act === "pop") {
+    const need = tierFor(city.level + 1).pop;
+    const wasReady = city.pop >= need;
+    city.pop = Math.max(0, city.pop + Number(btn.dataset.step));
+    saveState();
+    renderCities();
+    if (!wasReady && city.pop >= need) toast(`${city.name} is ready to level up`);
   } else if (act === "down") {
     // Dropping a level also drops the reward chosen for it.
     changeCity(index, (c) => {
@@ -736,7 +785,15 @@ function onCityClick(e) {
   } else if (act === "pick") {
     const slot = Number(btn.dataset.level) - FIRST_REWARD_LEVEL;
     const choice = Number(btn.dataset.choice);
-    changeCity(index, (c) => (c.picks[slot] = c.picks[slot] === choice ? null : choice));
+    const choices = tierFor(slot + FIRST_REWARD_LEVEL).choices;
+    changeCity(index, (c) => {
+      // A reward that adds population (Population) gives it, or takes it back if unpicked.
+      const before = c.picks[slot] ?? null;
+      const after = before === choice ? null : choice;
+      const popOf = (pick) => (pick === null ? 0 : choices[pick].pop || 0);
+      c.pop = Math.max(0, c.pop + popOf(after) - popOf(before));
+      c.picks[slot] = after;
+    });
   } else if (act === "adjacent") {
     changeCity(index, (c) => (c.adjacent = Math.max(0, c.adjacent + Number(btn.dataset.step))));
   } else if (act === "rename") {
@@ -764,8 +821,12 @@ function onGatehouseClick(e) {
     return;
   }
   const index = Number(btn.closest(".gatehouse").dataset.gate);
+  const gate = state.gatehouses[index];
   if (btn.dataset.act === "up") {
-    state.gatehouses[index].level = GATEHOUSE_MAX_LEVEL;
+    gate.pop = popAfterLevelUp(gate.pop, GATEHOUSE_UPGRADE.pop);
+    gate.level = GATEHOUSE_MAX_LEVEL;
+  } else if (btn.dataset.act === "pop") {
+    gate.pop = Math.max(0, gate.pop + Number(btn.dataset.step));
   } else if (btn.dataset.act === "down") {
     state.gatehouses[index].level = START_CITY_LEVEL;
   } else if (btn.dataset.act === "remove") {
@@ -795,9 +856,30 @@ function cityCard(city, index) {
     `<button type="button" class="step small" data-act="down" aria-label="Level down"` +
     `${city.level <= START_CITY_LEVEL ? " disabled" : ""}>−</button>` +
     `<span class="city-level">Level <b>${city.level}</b></span>` +
-    `<button type="button" class="btn level-up" data-act="up">` +
-    `Level up &middot; 👪 ${next.pop} pop</button></div>` +
+    levelUpButton(city.pop >= next.pop) + `</div>${popMeter(city.pop, next.pop)}` +
     `${rows.join("")}${remove}</div></article>`
+  );
+}
+
+// Lights up once there is enough population.
+function levelUpButton(ready) {
+  return (
+    `<button type="button" class="btn level-up${ready ? " ready" : ""}" data-act="up">` +
+    `${ready ? "Ready - level up!" : "Level up"}</button>`
+  );
+}
+
+// Population towards the next level, with − / + to count it.
+function popMeter(pop, need) {
+  const pct = Math.min(pop / need, 1) * 100;
+  return (
+    `<div class="pop-row">` +
+    `<button type="button" class="step small" data-act="pop" data-step="-1" ` +
+    `aria-label="One less population">−</button>` +
+    `<div class="pop-meter"><span>👪 <b>${pop}</b> / ${need} pop</span>` +
+    `<div class="hp-bar"><div class="hp-fill" style="width: ${pct}%"></div></div></div>` +
+    `<button type="button" class="step small" data-act="pop" data-step="1" ` +
+    `aria-label="One more population">+</button></div>`
   );
 }
 
@@ -837,18 +919,17 @@ function millRow(city, choice) {
 function renderGatehouses() {
   const rows = state.gatehouses.map((g, i) => {
     const upgraded = g.level >= GATEHOUSE_MAX_LEVEL;
-    const toggle = upgraded
+    const actions = upgraded
       ? `<button type="button" class="chip-btn" data-act="down">Level down</button>`
-      : `<button type="button" class="chip-btn" data-act="up">` +
-        `Level up &middot; 👪 ${GATEHOUSE_UPGRADE.pop}</button>`;
+      : popMeter(g.pop, GATEHOUSE_UPGRADE.pop) + levelUpButton(g.pop >= GATEHOUSE_UPGRADE.pop);
     return (
       `<div class="gatehouse${upgraded ? " upgraded" : ""}" data-gate="${i}">` +
       `<span class="choice-icon" aria-hidden="true">${GATEHOUSE.icon}</span>` +
       `<span class="gate-text"><b>Gatehouse ${i + 1}</b> &middot; level ${g.level}<br />` +
       `<span class="muted">${upgraded ? "Units can be trained here" : "Blocks enemy units"}` +
-      `</span></span>${toggle}` +
-      `<button type="button" class="chip-btn" data-act="remove" ` +
-      `aria-label="Remove gatehouse ${i + 1}">✕</button></div>`
+      `</span></span><button type="button" class="chip-btn" data-act="remove" ` +
+      `aria-label="Remove gatehouse ${i + 1}">✕</button>` +
+      `<div class="gate-actions">${actions}</div></div>`
     );
   });
   const build = isResearched(GATEHOUSE.research)

@@ -1,8 +1,16 @@
-export const VERSION = "v0.06";
+export const VERSION = "v0.07";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.07",
+    date: "2026-10-28",
+    notes: [
+      "Tribes have names (Xin-xi, Oumaji, Imperius, Bardur) and a free starting skill.",
+      "Population counter on each city and gatehouse shows how close it is to levelling up.",
+    ],
+  },
   {
     version: "v0.06",
     date: "2026-10-28",

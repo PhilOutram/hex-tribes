@@ -434,13 +434,14 @@ h3 {
 /* ---------- Home ---------- */
 .tribes {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.6rem;
 }
 
 .tribe {
   display: grid;
   justify-items: center;
+  align-content: start;
   gap: 0.35rem;
   padding: 0.7rem 0.2rem 0.6rem;
   border: 2px solid var(--edge);
@@ -466,6 +467,13 @@ h3 {
   border-color: var(--swatch);
   background-color: var(--paper-dark);
   box-shadow: 0 0 0 3px var(--swatch);
+}
+
+.start-tech {
+  font-family: var(--body-font);
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .tribe.chosen::after {
@@ -1067,6 +1075,31 @@ h3 {
   font-size: 0.85rem;
 }
 
+/* Enough population: the button turns your tribe colour. */
+.btn.level-up.ready {
+  border-color: var(--tribe);
+  background-color: var(--tribe);
+  color: var(--tribe-ink);
+  box-shadow: none;
+}
+
+.pop-row {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr 2.6rem;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.pop-meter {
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.pop-meter .hp-bar {
+  margin-top: 0.25rem;
+}
+
 .reward-row {
   margin-top: 0.7rem;
   padding-top: 0.6rem;
@@ -1175,16 +1208,16 @@ h3 {
   grid-row: span 2;
 }
 
-.gatehouse > [data-act="up"],
-.gatehouse > [data-act="down"] {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: start;
+.gate-actions {
+  grid-column: 2 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 0.4rem;
 }
 
-.gatehouse > [data-act="remove"] {
-  grid-column: 3;
-  grid-row: 1;
+.gate-actions > .pop-row {
+  margin-top: 0;
+  justify-self: stretch;
 }
 
 .gatehouse.upgraded {
@@ -1239,9 +1272,6 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .tribes {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 /* ---------- Version badge + changelog ---------- */

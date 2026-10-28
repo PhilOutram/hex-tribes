@@ -1,12 +1,14 @@
 // Game data, copied from the hand-drawn cardboard sheets: research tree, buildings table,
 // units table, star / super unit tracker and city level upgrades.
 
+// ink = text colour that reads clearly on top of the tribe colour; startTech = the inner ring
+// skill the tribe starts with, free. Oumaji's Riding is the Explorer branch here.
 export const TRIBES = [
-  // ink = text colour that reads clearly on top of the tribe colour.
-  { key: "red", name: "Red", colour: "#d93a2b", ink: "#fff" },
-  { key: "yellow", name: "Yellow", colour: "#e8b10c", ink: "#2b1d0e" },
-  { key: "blue", name: "Blue", colour: "#2a6fd6", ink: "#fff" },
-  { key: "green", name: "Green", colour: "#2f9a45", ink: "#fff" },
+  { key: "red", name: "Xin-xi", colour: "#d93a2b", ink: "#fff", startTech: "climbing" },
+  { key: "yellow", name: "Oumaji", colour: "#e8b10c", ink: "#2b1d0e", startTech: "explorer" },
+  { key: "blue", name: "Imperius", colour: "#2a6fd6", ink: "#fff",
+    startTech: "organization" },
+  { key: "green", name: "Bardur", colour: "#2f9a45", ink: "#fff", startTech: "hunting" },
 ];
 
 // Research and building prices were lowered on 2026-10-27: the family test game grew too
@@ -139,6 +141,7 @@ export const WORKSHOP_STARS      = 1;
 export const PARK_STARS          = 2;
 export const MEGA_MILL_STARS     = 1;
 export const RESOURCES_STARS     = 5;
+export const POPULATION_REWARD   = 3;
 
 export const STARS_PER_GO_RULE =
   "Each city gives stars per go equal to its level, like Polytopia. Your capital gives " +
@@ -149,7 +152,8 @@ export const WIN_RULE = "Take over all the other tribes' cities.";
 
 // City upgrades: pop = population needed to reach the next level; pick one reward. The last
 // row repeats for every level from 5 up. perGo = stars per go the reward adds, stars = stars
-// it gives once, perAdjacent = stars per go for each adjacent building you count.
+// it gives once, perAdjacent = stars per go for each adjacent building you count, pop =
+// population it adds to the city.
 export const CITY_LEVELS = [
   { from: "City level 1", to: "City level 2", pop: 2, choices: [
     { name: "Workshop", icon: "🔨", text: `+${WORKSHOP_STARS} ★ per go`,
@@ -164,7 +168,8 @@ export const CITY_LEVELS = [
   ] },
   { from: "City level 3", to: "City level 4", pop: 4, choices: [
     { name: "Border growth", icon: "🗺️", text: "City borders grow" },
-    { name: "Population", icon: "👪", text: "+3 population" },
+    { name: "Population", icon: "👪", text: `+${POPULATION_REWARD} population`,
+      pop: POPULATION_REWARD },
   ] },
   { from: "City level 4", to: "City level 5+", pop: 5, choices: [
     { name: "Super Unit", icon: "🗿", text: `A Super Unit (${SUPER_UNIT_MAX_HP} HP)` },
