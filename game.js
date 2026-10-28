@@ -17,37 +17,69 @@ export const INNER_COST = 3;
 export const OUTER_COST = 4;
 
 // Inner ring, clockwise from top-left as drawn. Each branch opens three outer-ring skills.
+// about = why you'd want it, shown when you hold the skill down. What it unlocks is worked
+// out from the buildings and units tables, so it can't go out of date.
 export const RESEARCH = [
   {
     key: "hunting", name: "Hunting", icon: "🦌",
+    about: "A cheap way to grow cities that sit next to forest. It opens the path to " +
+      "Lumber huts and Store houses for more population, and to Archers.",
     children: [
-      { key: "storehouse", name: "Store house", icon: "🏠" },
-      { key: "lumberhut", name: "Lumber hut", icon: "🪓" },
-      { key: "archer", name: "Archer", icon: "🏹" },
+      { key: "storehouse", name: "Store house", icon: "🏠",
+        about: "Build it in the middle of your lumber huts: the more huts around it, the " +
+          "more population it gives. It also counts towards a Mega mill." },
+      { key: "lumberhut", name: "Lumber hut", icon: "🪓",
+        about: "Cheap population from forest. Group them together so a Store house can " +
+          "sit next to several." },
+      { key: "archer", name: "Archer", icon: "🏹",
+        about: "Shoots from up to 3 hexes away, and a target that far away can't hit " +
+          "back. Great for defending and for weakening enemies before you attack." },
     ],
   },
   {
     key: "organization", name: "Organization", icon: "🧺",
+    about: "The cheapest way to grow cities on grassland. It opens the path to Farms, " +
+      "Markets and the Defender.",
     children: [
-      { key: "market", name: "Market", icon: "🏪" },
-      { key: "farm", name: "Farm", icon: "🌾" },
-      { key: "defender", name: "Defender", icon: "🛡️" },
+      { key: "market", name: "Market", icon: "🏪",
+        about: "Build it next to your farms: the more farms around it, the more " +
+          "population it gives. It also counts towards a Mega mill." },
+      { key: "farm", name: "Farm", icon: "🌾",
+        about: "2 population on grass - the biggest single boost for a grassy city." },
+      { key: "defender", name: "Defender", icon: "🛡️",
+        about: "A cheap, tough unit that hits back hard. Park it in a city or on a " +
+          "gatehouse to hold it. It is Static, so it can't move and then attack." },
     ],
   },
   {
     key: "climbing", name: "Climbing", icon: "🧗",
+    about: "Gives nothing to build on its own, but opens the mountain skills: Stone " +
+      "quarries, Mining and the Swordsman.",
     children: [
-      { key: "quarry", name: "Stone quarry", icon: "🪨" },
-      { key: "mining", name: "Mining", icon: "⛏️" },
-      { key: "swordsman", name: "Swordsman", icon: "⚔️" },
+      { key: "quarry", name: "Stone quarry", icon: "🪨",
+        about: "Build it next to your mines: each mine around it adds 2 population. It " +
+          "also counts towards a Mega mill." },
+      { key: "mining", name: "Mining", icon: "⛏️",
+        about: "Mines on iron mountains give 2 population, and make Stone quarries next " +
+          "to them worth more." },
+      { key: "swordsman", name: "Swordsman", icon: "⚔️",
+        about: "Your strongest all-round fighter: good attack, defence and health for 5 " +
+          "stars." },
     ],
   },
   {
     key: "explorer", name: "Explorer", icon: "🧭",
+    about: "The Explorer moves 2 spaces, so it is quick at finding ruins and cities to " +
+      "take. It opens Roads, the Gatehouse and the Rider.",
     children: [
-      { key: "road", name: "Road", icon: "🛣️" },
-      { key: "gatehouse", name: "Gatehouse", icon: "🏰" },
-      { key: "rider", name: "Rider", icon: "🐎" },
+      { key: "road", name: "Road", icon: "🛣️",
+        about: "Gives population to both your capital and the town it reaches." },
+      { key: "gatehouse", name: "Gatehouse", icon: "🏰",
+        about: "A wall enemy units can't move onto - block a path into your land. At " +
+          "level 2 you can train units on it, right at the front line." },
+      { key: "rider", name: "Rider", icon: "🐎",
+        about: "The Knight moves 3 spaces and has Persist: every kill lets it move on and " +
+          "attack again, so it can break through a line of weak units." },
     ],
   },
 ];

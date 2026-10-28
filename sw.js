@@ -1,14 +1,14 @@
 // Minimal offline-first service worker.
 // Bump the version in CACHE whenever you change the cached files, and keep ASSETS
 // in sync with the files the app needs to work offline.
-const CACHE = "hex-tribes-v0.07";
+const CACHE = "hex-tribes-v0.08";
 const ASSETS = [
   ".",
   "index.html",
-  "styles.css?v=0.07",
-  "app.js?v=0.07",
-  "version.js?v=0.07",
-  "game.js?v=0.07",
+  "styles.css?v=0.08",
+  "app.js?v=0.08",
+  "version.js?v=0.08",
+  "game.js?v=0.08",
   "manifest.webmanifest",
   "icon.svg",
   "icon.png",

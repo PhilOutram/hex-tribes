@@ -1,12 +1,12 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.07";
+import { VERSION, CHANGELOG } from "./version.js?v=0.08";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   SUPER_UNIT_MAX_HP, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
   RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
   STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE,
-} from "./game.js?v=0.07";
+} from "./game.js?v=0.08";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -66,6 +66,10 @@ const DIE_SPOTS = 9;
 const TOAST_MS = 2200;
 const TOAST_ACTION_MS = 5000;
 
+// Holding a research skill this long shows what it gives; moving further cancels the hold.
+const HOLD_MS = 450;
+const HOLD_SLOP_PX = 10;
+
 // Every research skill by key, with its parent (inner ring skills have none) and cost.
 const NODES = {};
 RESEARCH.forEach((branch) => {
@@ -93,6 +97,10 @@ renderTabs();
 renderTribes();
 document.getElementById("win-rule").textContent = WIN_RULE;
 renderTree();
+setupTreeInput();
+document.getElementById("research-hint").innerHTML =
+  `Inner ring <b>${INNER_COST} ★</b> &middot; outer ring <b>${OUTER_COST} ★</b>. Tap a skill ` +
+  `to research it, tap again to undo. <b>Hold</b> a skill to see what it gives you.`;
 renderBuildings();
 renderUnits();
 renderCombatRules();
@@ -330,22 +338,131 @@ function renderTree() {
     `<text class="centre-count" y="5">${done}/${NODE_COUNT}</text>` +
     nodes.join("");
 
-  svg.onclick = (e) => {
-    const node = e.target.closest(".node");
-    if (node) toggleResearch(node.dataset.key);
-  };
-  svg.onkeydown = (e) => {
-    const node = e.target.closest(".node");
-    if (node && (e.key === "Enter" || e.key === " ")) {
-      e.preventDefault();
-      toggleResearch(node.dataset.key);
-    }
-  };
-
   const spent = state.researched.reduce((sum, key) => sum + NODES[key].cost, 0);
   document.getElementById("research-summary").innerHTML =
     `Researched <b>${done}</b> of ${NODE_COUNT} &middot; <b>${spent} ★</b> spent<br />` +
     `${tribe().name} start with ${NODES[tribe().startTech].name}, free`;
+}
+
+// Tap a skill to research it; hold it (or right-click, or press i) to see what it gives.
+function setupTreeInput() {
+  const svg = document.getElementById("tree");
+  let hold = null;
+  let held = false;
+  const cancelHold = () => {
+    if (hold) clearTimeout(hold.timer);
+    hold = null;
+  };
+  svg.addEventListener("pointerdown", (e) => {
+    const node = e.target.closest(".node");
+    held = false;
+    if (!node) return;
+    const timer = setTimeout(() => {
+      hold = null;
+      held = true;
+      showTechInfo(node.dataset.key, true);
+    }, HOLD_MS);
+    hold = { x: e.clientX, y: e.clientY, timer };
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > HOLD_SLOP_PX) cancelHold();
+  });
+  ["pointerup", "pointercancel", "pointerleave"].forEach((type) => {
+    svg.addEventListener(type, cancelHold);
+  });
+  // A long press on a phone also fires contextmenu: keep the browser's menu away.
+  svg.addEventListener("contextmenu", (e) => {
+    const node = e.target.closest(".node");
+    if (!node) return;
+    e.preventDefault();
+    if (held) return;
+    cancelHold();
+    held = true;
+    showTechInfo(node.dataset.key, false);
+  });
+  svg.addEventListener("click", (e) => {
+    const node = e.target.closest(".node");
+    if (!node || held) return;
+    toggleResearch(node.dataset.key);
+  });
+  svg.addEventListener("keydown", (e) => {
+    const node = e.target.closest(".node");
+    if (!node) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleResearch(node.dataset.key);
+    } else if (e.key === "i") {
+      showTechInfo(node.dataset.key, false);
+    }
+  });
+}
+
+// What a skill opens, builds and trains, worked out from the game tables.
+function techUnlocks(key) {
+  const node = NODES[key];
+  const groups = [
+    { title: "Opens", kind: "skill", items: node.children || [] },
+    { title: "Builds", kind: "building", items: BUILDINGS.filter((b) => b.research === key) },
+    { title: "Trains", kind: "unit", items: UNITS.filter((u) => u.research === key) },
+  ];
+  return groups.filter((g) => g.items.length).map(
+    (g) =>
+      `<h3>${g.title}</h3><ul class="unlocks">` +
+      g.items.map(
+        (item) =>
+          `<li><span class="unlock-icon" aria-hidden="true">${item.icon}</span>` +
+          `<span>${item.name}<small>${g.kind}, ` +
+          `${item.cost ?? NODES[item.key].cost} ★</small></span></li>`
+      ).join("") +
+      `</ul>`
+  ).join("");
+}
+
+function techStatus(key) {
+  const node = NODES[key];
+  if (key === tribe().startTech) return `Free for ${tribe().name}`;
+  if (isResearched(key)) return "✓ Researched";
+  if (node.parent && !isResearched(node.parent)) return `🔒 Needs ${NODES[node.parent].name}`;
+  return "Not researched yet";
+}
+
+// Info panel for one skill. Opened by a hold, it ignores the release of that same press so
+// it doesn't close straight away.
+function showTechInfo(key, byHold) {
+  const node = NODES[key];
+  const canBuy = !isResearched(key) && !(node.parent && !isResearched(node.parent));
+  const overlay = document.createElement("div");
+  overlay.className = "changelog-overlay";
+  const panel = document.createElement("div");
+  panel.className = "changelog tech-info";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", node.name);
+  panel.innerHTML =
+    `<header class="tech-head"><span class="tech-icon" aria-hidden="true">${node.icon}</span>` +
+    `<span><h2>${node.name}</h2><span class="chip">${node.cost} ★</span>` +
+    `<span class="chip">${techStatus(key)}</span></span></header>` +
+    `<p>${node.about}</p>${techUnlocks(key)}` +
+    (canBuy
+      ? `<button type="button" class="btn" data-act="buy">` +
+        `Research &middot; ${node.cost} ★</button>`
+      : "") +
+    `<button type="button" class="btn small" data-act="close">Close</button>`;
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  let armed = !byHold;
+  if (byHold) {
+    window.addEventListener("pointerup", () => setTimeout(() => (armed = true)), { once: true });
+  }
+  overlay.addEventListener("click", (e) => {
+    if (!armed) return;
+    const btn = e.target.closest("button");
+    if (e.target === overlay || (btn && btn.dataset.act === "close")) overlay.remove();
+    if (btn && btn.dataset.act === "buy") {
+      overlay.remove();
+      toggleResearch(key);
+    }
+  });
 }
 
 function line(from, to, open) {

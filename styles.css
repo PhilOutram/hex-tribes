@@ -509,6 +509,58 @@ h3 {
   height: auto;
   margin-top: 0.5rem;
   font-family: var(--title-font);
+  /* Holding a skill opens its info: stop the phone selecting text or popping a menu. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ---------- Skill info (hold a skill) ---------- */
+.tech-head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.tech-head h2 {
+  margin: 0 0 0.2rem;
+}
+
+.tech-icon {
+  font-size: 2.6rem;
+}
+
+.tech-info h3 {
+  margin: 0.9rem 0 0.3rem;
+  font-size: 0.9rem;
+}
+
+.unlocks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unlocks li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--edge);
+}
+
+.unlocks small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.unlock-icon {
+  font-size: 1.5rem;
+}
+
+.tech-info .btn {
+  margin-top: 0.9rem;
 }
 
 .tree .guide {
