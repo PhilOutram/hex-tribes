@@ -9,8 +9,10 @@ export const TRIBES = [
   { key: "green", name: "Green", colour: "#2f9a45", ink: "#fff" },
 ];
 
-export const INNER_COST = 4;
-export const OUTER_COST = 6;
+// Research and building prices were lowered on 2026-10-27: the family test game grew too
+// slowly. Unit prices stayed the same.
+export const INNER_COST = 3;
+export const OUTER_COST = 4;
 
 // Inner ring, clockwise from top-left as drawn. Each branch opens three outer-ring skills.
 export const RESEARCH = [
@@ -42,34 +44,38 @@ export const RESEARCH = [
     key: "explorer", name: "Explorer", icon: "🧭",
     children: [
       { key: "road", name: "Road", icon: "🛣️" },
-      { key: "gatehouse", name: "Gatehouse", icon: "🚪" },
+      { key: "gatehouse", name: "Gatehouse", icon: "🏰" },
       { key: "rider", name: "Rider", icon: "🐎" },
     ],
   },
 ];
 
-// research = key of the research skill that unlocks it; cost null = not decided yet;
-// note = rule text shown on the card.
+export const GATEHOUSE_COST = 3;
+export const GATEHOUSE_LEVEL_2_POP = 4;
+
+// research = key of the research skill that unlocks it; note = rule text shown on the card.
 export const BUILDINGS = [
-  { name: "Organize", icon: "🧺", research: "organization", cost: 2, terrain: "Grass",
+  { name: "Organize", icon: "🧺", research: "organization", cost: 1, terrain: "Grass",
     pop: "1" },
-  { name: "Hunt", icon: "🦌", research: "hunting", cost: 2, terrain: "Wood", pop: "1" },
-  { name: "Lumber hut", icon: "🪓", research: "lumberhut", cost: 3, terrain: "Wood",
+  { name: "Hunt", icon: "🦌", research: "hunting", cost: 1, terrain: "Wood", pop: "1" },
+  { name: "Lumber hut", icon: "🪓", research: "lumberhut", cost: 2, terrain: "Wood",
     pop: "1" },
-  { name: "Store house", icon: "🏠", research: "storehouse", cost: 5, terrain: "Wood / grass",
+  { name: "Store house", icon: "🏠", research: "storehouse", cost: 3, terrain: "Wood / grass",
     pop: "1 per adjacent lumber hut" },
-  { name: "Farm", icon: "🌾", research: "farm", cost: 6, terrain: "Grass", pop: "2" },
-  { name: "Market", icon: "🏪", research: "market", cost: 5, terrain: "Grass",
+  { name: "Farm", icon: "🌾", research: "farm", cost: 4, terrain: "Grass", pop: "2" },
+  { name: "Market", icon: "🏪", research: "market", cost: 3, terrain: "Grass",
     pop: "1 per adjacent farm" },
-  { name: "Mine", icon: "⛏️", research: "mining", cost: 5, terrain: "Iron mountain",
+  { name: "Mine", icon: "⛏️", research: "mining", cost: 3, terrain: "Iron mountain",
     pop: "2" },
-  { name: "Stone quarry", icon: "🪨", research: "quarry", cost: 5, terrain: "Grass / wood",
+  { name: "Stone quarry", icon: "🪨", research: "quarry", cost: 3, terrain: "Grass / wood",
     pop: "2 per adjacent mine" },
-  { name: "Road", icon: "🛣️", research: "road", cost: 2, terrain: "Grass / wood",
+  { name: "Road", icon: "🛣️", research: "road", cost: 1, terrain: "Grass / wood",
     pop: "1 for capital, 1 for town" },
-  { name: "Gatehouse", icon: "🚪", research: "gatehouse", cost: null, terrain: "Not decided",
-    pop: "4 pop to reach level 2",
-    note: "Enemy units can't move onto it. At level 2, units can be trained on it." },
+  { name: "Gatehouse", icon: "🏰", research: "gatehouse", cost: GATEHOUSE_COST,
+    terrain: "1 or 2 spaces from one of your cities",
+    pop: `${GATEHOUSE_LEVEL_2_POP} pop to reach level 2`,
+    note: "Enemy units can't move onto it. At level 2, units can be trained on it. " +
+      "It never gives stars per go." },
 ];
 
 export const UNIT_STATS = [
@@ -126,25 +132,34 @@ export const COMBAT_RULES = [
   "<b>Example:</b> a Warrior (Atk 3) attacks a Defender (Def 2) and does 1 damage. The " +
     "Defender survives and hits back for 3 − 1 = 2.",
 ];
-export const START_STARS_PER_GO = 2;
-export const CITY_LEVEL_STARS = 1;
+// Stars per go: each city gives its level, and the capital gives this much extra.
+export const CITY_LEVEL_STARS    = 1;
+export const CAPITAL_EXTRA_STARS = 1;
+export const WORKSHOP_STARS      = 1;
+export const PARK_STARS          = 2;
+export const MEGA_MILL_STARS     = 1;
+export const RESOURCES_STARS     = 5;
 
 export const STARS_PER_GO_RULE =
-  "Each city gives stars per go equal to its level, like Polytopia. Your capital gives 1 " +
-  "extra, which is why you start on 2. When a city levels up, or you take a new city, add " +
-  "to your stars per go.";
+  "Each city gives stars per go equal to its level, like Polytopia. Your capital gives " +
+  `${CAPITAL_EXTRA_STARS} extra. Gatehouses give none. Keep your cities below up to date ` +
+  "and your stars per go follows.";
 
 export const WIN_RULE = "Take over all the other tribes' cities.";
 
-// City upgrades: pop = population needed to reach the next level; pick one reward.
+// City upgrades: pop = population needed to reach the next level; pick one reward. The last
+// row repeats for every level from 5 up. perGo = stars per go the reward adds, stars = stars
+// it gives once, perAdjacent = stars per go for each adjacent building you count.
 export const CITY_LEVELS = [
   { from: "City level 1", to: "City level 2", pop: 2, choices: [
-    { name: "Workshop", icon: "🔨", text: "+1 ★ per go" },
+    { name: "Workshop", icon: "🔨", text: `+${WORKSHOP_STARS} ★ per go`,
+      perGo: WORKSHOP_STARS },
     { name: "Mega mill", icon: "🏭",
-      text: "+1 ★ per go for each adjacent store house, market and quarry" },
+      text: `+${MEGA_MILL_STARS} ★ per go for each adjacent store house, market and quarry`,
+      perAdjacent: MEGA_MILL_STARS },
   ] },
   { from: "City level 2", to: "City level 3", pop: 3, choices: [
-    { name: "Resources", icon: "💰", text: "+5 ★" },
+    { name: "Resources", icon: "💰", text: `+${RESOURCES_STARS} ★`, stars: RESOURCES_STARS },
     { name: "City wall", icon: "🧱", text: "+1 defence in the city" },
   ] },
   { from: "City level 3", to: "City level 4", pop: 4, choices: [
@@ -153,17 +168,23 @@ export const CITY_LEVELS = [
   ] },
   { from: "City level 4", to: "City level 5+", pop: 5, choices: [
     { name: "Super Unit", icon: "🗿", text: `A Super Unit (${SUPER_UNIT_MAX_HP} HP)` },
-    { name: "Park of fortune", icon: "🌳", text: "+2 ★ per go" },
-  ] },
-  { from: "Gatehouse level 1", to: "Gatehouse level 2", pop: 4, choices: [
-    { name: "Training ground", icon: "⚔️", text: "Units can be trained on the gatehouse" },
+    { name: "Park of fortune", icon: "🌳", text: `+${PARK_STARS} ★ per go`,
+      perGo: PARK_STARS },
   ] },
 ];
 
-// Ruins: roll a six-sided die. Rolls 1-2 give a unit, 3-4 a building, 5-6 stars.
+export const GATEHOUSE_UPGRADE = {
+  from: "Gatehouse level 1", to: "Gatehouse level 2", pop: GATEHOUSE_LEVEL_2_POP, choices: [
+    { name: "Training ground", icon: "⚔️", text: "Units can be trained on the gatehouse" },
+  ],
+};
+
+// Ruins: roll a six-sided die. Rolls 1-2 give a unit, 3-4 a building, 5-6 stars. The
+// building limit dropped from 3 to 2 with the cheaper buildings, so the same four
+// (Organize, Hunt, Lumber hut, Road) are still on offer.
 export const DIE_FACES = 6;
 export const RUIN_MAX_UNIT_COST = 3;
-export const RUIN_MAX_BUILDING_COST = 3;
+export const RUIN_MAX_BUILDING_COST = 2;
 export const RUIN_STARS = 4;
 
 export const RUIN_OUTCOMES = [

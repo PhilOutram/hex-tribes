@@ -1,8 +1,17 @@
-export const VERSION = "v0.05";
+export const VERSION = "v0.06";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.06",
+    date: "2026-10-28",
+    notes: [
+      "Cheaper research (3 / 4 ★) and buildings to speed up the game; units unchanged.",
+      "Cities page tracks each city's level and chosen rewards, with a Mega mill counter.",
+      "Gatehouse costs 3 ★, is tracked on the Cities page and now has a castle icon.",
+    ],
+  },
   {
     version: "v0.05",
     date: "2026-10-27",

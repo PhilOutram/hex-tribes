@@ -1,12 +1,12 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.05";
+import { VERSION, CHANGELOG } from "./version.js?v=0.06";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
-  SUPER_UNIT_MAX_HP, START_STARS_PER_GO, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST,
-  RUIN_MAX_BUILDING_COST, RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS,
-  STARS_PER_GO_RULE, WIN_RULE,
-} from "./game.js?v=0.05";
+  SUPER_UNIT_MAX_HP, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
+  RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
+  STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE,
+} from "./game.js?v=0.06";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -28,9 +28,15 @@ const TABS = [
   { icon: "⚔️", label: "Units" },
   { icon: "🎲", label: "Ruins" },
   { icon: "⭐", label: "Tracker" },
-  { icon: "🏰", label: "Cities" },
+  { icon: "🏘️", label: "Cities" },
 ];
 const TRACKER_PAGE = 5;
+
+// A city starts at level 1; a gatehouse has levels 1 and 2.
+const START_CITY_LEVEL = 1;
+const FIRST_REWARD_LEVEL = 2;
+const GATEHOUSE_MAX_LEVEL = 2;
+const CAPITAL_NAME = "Capital";
 
 // Research tree layout, in SVG units around the centre (0, 0). Angles are in degrees,
 // clockwise from 3 o'clock; the first branch sits top-left as on the cardboard.
@@ -69,6 +75,7 @@ RESEARCH.forEach((branch) => {
   });
 });
 const NODE_COUNT = Object.keys(NODES).length;
+const GATEHOUSE = BUILDINGS.find((b) => b.research === "gatehouse");
 
 const state = loadState();
 
@@ -110,7 +117,9 @@ document.getElementById("unit-list").addEventListener("click", (e) => {
   buyFrom(e, UNITS, "Trained");
 });
 document.getElementById("new-game").addEventListener("click", newGame);
-document.getElementById("city-level-up").addEventListener("click", cityLevelUp);
+document.getElementById("my-cities").addEventListener("click", onCityClick);
+document.getElementById("add-city").addEventListener("click", addCity);
+document.getElementById("gatehouse-list").addEventListener("click", onGatehouseClick);
 
 pages.addEventListener("scroll", () => requestAnimationFrame(syncPageFromScroll), {
   passive: true,
@@ -120,14 +129,19 @@ window.addEventListener("resize", () => goToPage(currentPage, false));
 // ---------- State ----------
 
 function defaultState() {
+  const capital = newCity(CAPITAL_NAME);
   return {
     tribe: DEFAULT_TRIBE,
     researched: [],
     stars: 0,
-    perGo: START_STARS_PER_GO,
+    perGo: cityPerGo(capital, 0),
     superHp: SUPER_UNIT_MAX_HP,
     go: 1,
     page: 0,
+    // The first city is always the capital. cityCount numbers the cities you add.
+    cities: [capital],
+    cityCount: 1,
+    gatehouses: [],
   };
 }
 
@@ -382,12 +396,20 @@ function buyButton(item, index, verb) {
 function buyFrom(e, items, done) {
   const btn = e.target.closest(".buy");
   if (!btn) return;
-  const item = items[Number(btn.dataset.buy)];
+  buy(items[Number(btn.dataset.buy)], done);
+}
+
+// Pays for a building or unit, with Undo. A gatehouse also joins your list on the Cities
+// page, so its level can be tracked.
+function buy(item, done) {
   if (!spend(item.cost, item.name)) return;
+  const isGatehouse = item === GATEHOUSE;
+  if (isGatehouse) state.gatehouses.push({ level: START_CITY_LEVEL });
   saveState();
   renderStars();
   toast(`${done} ${item.name}: −${item.cost} ★`, "Undo", () => {
     state.stars += item.cost;
+    if (isGatehouse) state.gatehouses.pop();
     saveState();
     renderStars();
     toast(`${item.name} undone: +${item.cost} ★`);
@@ -625,34 +647,230 @@ function renderStars() {
   renderBanner();
   renderBuildings();
   renderUnits();
+  renderCities();
 }
 
 // ---------- City levels ----------
 
-// A city levelled up or was taken: it now gives one more star per go.
-function cityLevelUp() {
-  state.perGo += CITY_LEVEL_STARS;
+// picks[i] = which reward the city chose on reaching level i + 2 (null = not chosen yet);
+// adjacent = store houses, markets and quarries next to its Mega mill.
+function newCity(name) {
+  return { name, level: START_CITY_LEVEL, picks: [], adjacent: 0 };
+}
+
+// The row of rewards a city chooses from on reaching this level. The last row repeats.
+function tierFor(level) {
+  return CITY_LEVELS[Math.min(level - FIRST_REWARD_LEVEL, CITY_LEVELS.length - 1)];
+}
+
+function pickedRewards(city) {
+  const rewards = [];
+  for (let i = 0; i < city.picks.length; i++) {
+    const pick = city.picks[i] ?? null;
+    if (pick !== null) rewards.push(tierFor(i + FIRST_REWARD_LEVEL).choices[pick]);
+  }
+  return rewards;
+}
+
+// Stars per go from one city: its level, the capital's extra and any rewards that add some.
+function cityPerGo(city, index) {
+  let total = city.level * CITY_LEVEL_STARS + (index === 0 ? CAPITAL_EXTRA_STARS : 0);
+  pickedRewards(city).forEach((c) => {
+    total += (c.perGo || 0) + (c.perAdjacent || 0) * city.adjacent;
+  });
+  return total;
+}
+
+// Stars a city's rewards gave you once (Resources).
+function cityStars(city) {
+  return pickedRewards(city).reduce((sum, c) => sum + (c.stars || 0), 0);
+}
+
+function signed(n) {
+  return n > 0 ? `+${n}` : `−${-n}`;
+}
+
+// Changes a city, then moves your stars per go and stars by however much that changed.
+function changeCity(index, change) {
+  const city = state.cities[index];
+  const perGo = cityPerGo(city, index);
+  const stars = cityStars(city);
+  change(city);
+  const perGoDelta = cityPerGo(city, index) - perGo;
+  const starsDelta = cityStars(city) - stars;
+  state.perGo = Math.max(0, state.perGo + perGoDelta);
+  state.stars = Math.max(0, state.stars + starsDelta);
   saveState();
   renderStars();
-  toast(`+${CITY_LEVEL_STARS} ★ per go - now ${state.perGo} per go`, "Undo", () => {
-    state.perGo -= CITY_LEVEL_STARS;
+  const parts = [];
+  if (perGoDelta) parts.push(`${signed(perGoDelta)} ★ per go`);
+  if (starsDelta) parts.push(`${signed(starsDelta)} ★`);
+  if (parts.length) toast(`${city.name}: ${parts.join(", ")}`);
+}
+
+function addCity() {
+  state.cityCount += 1;
+  const city = newCity(`City ${state.cityCount}`);
+  state.cities.push(city);
+  const perGo = cityPerGo(city, state.cities.length - 1);
+  state.perGo += perGo;
+  saveState();
+  renderStars();
+  toast(`${city.name} added: +${perGo} ★ per go`);
+}
+
+function onCityClick(e) {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const index = Number(btn.closest(".city").dataset.city);
+  const city = state.cities[index];
+  const act = btn.dataset.act;
+  if (act === "up") {
+    changeCity(index, (c) => (c.level += 1));
+  } else if (act === "down") {
+    // Dropping a level also drops the reward chosen for it.
+    changeCity(index, (c) => {
+      c.level -= 1;
+      c.picks = c.picks.slice(0, c.level - START_CITY_LEVEL);
+    });
+  } else if (act === "pick") {
+    const slot = Number(btn.dataset.level) - FIRST_REWARD_LEVEL;
+    const choice = Number(btn.dataset.choice);
+    changeCity(index, (c) => (c.picks[slot] = c.picks[slot] === choice ? null : choice));
+  } else if (act === "adjacent") {
+    changeCity(index, (c) => (c.adjacent = Math.max(0, c.adjacent + Number(btn.dataset.step))));
+  } else if (act === "rename") {
+    const name = prompt("City name", city.name);
+    if (!name || !name.trim()) return;
+    city.name = name.trim();
+    saveState();
+    renderCities();
+  } else if (act === "remove") {
+    const perGo = cityPerGo(city, index);
+    if (!confirm(`Remove ${city.name}? Your stars per go goes down by ${perGo}.`)) return;
+    state.cities.splice(index, 1);
+    state.perGo = Math.max(0, state.perGo - perGo);
     saveState();
     renderStars();
+    toast(`${city.name} removed: −${perGo} ★ per go`);
+  }
+}
+
+function onGatehouseClick(e) {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  if (btn.dataset.act === "build") {
+    buy(GATEHOUSE, "Built");
+    return;
+  }
+  const index = Number(btn.closest(".gatehouse").dataset.gate);
+  if (btn.dataset.act === "up") {
+    state.gatehouses[index].level = GATEHOUSE_MAX_LEVEL;
+  } else if (btn.dataset.act === "down") {
+    state.gatehouses[index].level = START_CITY_LEVEL;
+  } else if (btn.dataset.act === "remove") {
+    if (!confirm(`Remove gatehouse ${index + 1}?`)) return;
+    state.gatehouses.splice(index, 1);
+  }
+  saveState();
+  renderCities();
+}
+
+function cityCard(city, index) {
+  const next = tierFor(city.level + 1);
+  const rows = [];
+  for (let level = FIRST_REWARD_LEVEL; level <= city.level; level++) {
+    rows.push(rewardRow(city, level));
+  }
+  const remove = index === 0
+    ? ""
+    : `<button type="button" class="chip-btn remove" data-act="remove">Remove city</button>`;
+  return (
+    `<article class="level city" data-city="${index}"><header class="level-head">` +
+    `<button type="button" class="city-name" data-act="rename" ` +
+    `aria-label="Rename ${city.name}">${index === 0 ? "👑 " : ""}${city.name} ` +
+    `<span aria-hidden="true">✎</span></button>` +
+    `<span class="pop-need">+${cityPerGo(city, index)} ★ per go</span></header>` +
+    `<div class="city-body"><div class="city-level-row">` +
+    `<button type="button" class="step small" data-act="down" aria-label="Level down"` +
+    `${city.level <= START_CITY_LEVEL ? " disabled" : ""}>−</button>` +
+    `<span class="city-level">Level <b>${city.level}</b></span>` +
+    `<button type="button" class="btn level-up" data-act="up">` +
+    `Level up &middot; 👪 ${next.pop} pop</button></div>` +
+    `${rows.join("")}${remove}</div></article>`
+  );
+}
+
+// The rewards for one level a city has reached; the chosen one is highlighted.
+function rewardRow(city, level) {
+  const tier = tierFor(level);
+  const picked = city.picks[level - FIRST_REWARD_LEVEL] ?? null;
+  const buttons = tier.choices.map(
+    (c, i) =>
+      `<button type="button" class="reward${picked === i ? " chosen" : ""}" data-act="pick" ` +
+      `data-level="${level}" data-choice="${i}" aria-pressed="${picked === i}">` +
+      `<span class="choice-icon" aria-hidden="true">${c.icon}</span><b>${c.name}</b>` +
+      `<span class="reward-text">${c.text}</span></button>`
+  ).join("");
+  const choice = picked === null ? null : tier.choices[picked];
+  const hint = picked === null ? ` <span class="muted">- tap your reward</span>` : "";
+  return (
+    `<div class="reward-row"><div class="reward-level">Level ${level}${hint}</div>` +
+    `<div class="reward-choices">${buttons}</div>` +
+    `${choice && choice.perAdjacent ? millRow(city, choice) : ""}</div>`
+  );
+}
+
+// Mega mill: count the adjacent store houses, markets and quarries.
+function millRow(city, choice) {
+  return (
+    `<div class="mill-row"><span>Adjacent store houses, markets and quarries</span>` +
+    `<div class="mill-count"><button type="button" class="step small" data-act="adjacent" ` +
+    `data-step="-1" aria-label="One fewer">−</button>` +
+    `<output class="mill-stars">${city.adjacent} ` +
+    `<small>= +${city.adjacent * choice.perAdjacent} ★ per go</small></output>` +
+    `<button type="button" class="step small" data-act="adjacent" data-step="1" ` +
+    `aria-label="One more">+</button></div></div>`
+  );
+}
+
+function renderGatehouses() {
+  const rows = state.gatehouses.map((g, i) => {
+    const upgraded = g.level >= GATEHOUSE_MAX_LEVEL;
+    const toggle = upgraded
+      ? `<button type="button" class="chip-btn" data-act="down">Level down</button>`
+      : `<button type="button" class="chip-btn" data-act="up">` +
+        `Level up &middot; 👪 ${GATEHOUSE_UPGRADE.pop}</button>`;
+    return (
+      `<div class="gatehouse${upgraded ? " upgraded" : ""}" data-gate="${i}">` +
+      `<span class="choice-icon" aria-hidden="true">${GATEHOUSE.icon}</span>` +
+      `<span class="gate-text"><b>Gatehouse ${i + 1}</b> &middot; level ${g.level}<br />` +
+      `<span class="muted">${upgraded ? "Units can be trained here" : "Blocks enemy units"}` +
+      `</span></span>${toggle}` +
+      `<button type="button" class="chip-btn" data-act="remove" ` +
+      `aria-label="Remove gatehouse ${i + 1}">✕</button></div>`
+    );
   });
+  const build = isResearched(GATEHOUSE.research)
+    ? `<button type="button" class="buy${state.stars < GATEHOUSE.cost ? " short" : ""}" ` +
+      `data-act="build">Build a gatehouse &middot; ${GATEHOUSE.cost} ★</button>`
+    : `<p class="muted">🔒 Research Gatehouse to build one.</p>`;
+  document.getElementById("gatehouse-list").innerHTML =
+    rows.join("") + `<p class="muted gate-rule">${GATEHOUSE.terrain}. ${GATEHOUSE.note}</p>` +
+    build;
 }
 
 function renderCities() {
   document.getElementById("city-stars-rule").textContent = STARS_PER_GO_RULE;
-  document.getElementById("city-level-up").textContent =
-    `City level up: +${CITY_LEVEL_STARS} ★ per go`;
-  document.getElementById("city-list").innerHTML = CITY_LEVELS.map((level) => {
-    const choices = level.choices.length
-      ? level.choices.map(
-        (c) =>
-          `<div class="choice"><span class="choice-icon" aria-hidden="true">${c.icon}</span>` +
-          `<b>${c.name}</b><span class="muted">${c.text}</span></div>`
-      ).join(`<div class="or">or</div>`)
-      : `<p class="muted">Reward not decided yet.</p>`;
+  document.getElementById("my-cities").innerHTML = state.cities.map(cityCard).join("");
+  renderGatehouses();
+  const reference = [...CITY_LEVELS, GATEHOUSE_UPGRADE];
+  document.getElementById("city-list").innerHTML = reference.map((level) => {
+    const choices = level.choices.map(
+      (c) =>
+        `<div class="choice"><span class="choice-icon" aria-hidden="true">${c.icon}</span>` +
+        `<b>${c.name}</b><span class="muted">${c.text}</span></div>`
+    ).join(`<div class="or">or</div>`);
     return (
       `<article class="level"><header class="level-head">` +
       `<span>${level.from} <span class="arrow">→</span> ${level.to}</span>` +

@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=Cinzel:wght@600;700&family=Uncial+Antiqua&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=0.05" />
+  <link rel="stylesheet" href="styles.css?v=0.06" />
 </head>
 <body>
   <section id="splash" class="splash" aria-label="Hex Tribes">
@@ -91,12 +91,17 @@
         <div id="tracker" class="tracker"></div>
       </section>
 
-      <section class="page" id="page-cities" data-title="City levels">
+      <section class="page" id="page-cities" data-title="Cities">
         <section class="rules">
           <h2>Stars per go</h2>
           <p id="city-stars-rule" class="muted"></p>
-          <button id="city-level-up" class="btn small" type="button"></button>
         </section>
+        <h2>My cities</h2>
+        <div id="my-cities"></div>
+        <button id="add-city" class="btn small" type="button">+ New city (built or taken)</button>
+        <h2>Gatehouses</h2>
+        <div id="gatehouse-list"></div>
+        <h2>Level rewards</h2>
         <div id="city-list"></div>
       </section>
     </div>
@@ -106,6 +111,6 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="app.js?v=0.05" type="module"></script>
+  <script src="app.js?v=0.06" type="module"></script>
 </body>
 </html>
