@@ -884,6 +884,32 @@ h3 {
   color: var(--muted);
 }
 
+/* Ruin units are buttons: bigger to tap, and the chosen one takes your tribe colour. */
+button.pick {
+  padding: 0.55rem 0.9rem;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button.pick.chosen {
+  border-color: var(--tribe);
+  background-color: var(--tribe);
+  color: var(--tribe-ink);
+}
+
+button.pick:disabled:not(.chosen) {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ruin-added {
+  margin: 0.6rem 0 0;
+  text-align: center;
+  font-weight: 700;
+}
+
 .ruin-table {
   display: grid;
   gap: 0.5rem;

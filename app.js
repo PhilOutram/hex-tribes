@@ -1,12 +1,12 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.09";
+import { VERSION, CHANGELOG } from "./version.js?v=0.10";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
   CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
   RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
-  STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE,
-} from "./game.js?v=0.09";
+  STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE, START_STARS, START_UNIT,
+} from "./game.js?v=0.10";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -147,11 +147,11 @@ function defaultState() {
   return {
     tribe: DEFAULT_TRIBE,
     researched: [],
-    stars: 0,
+    stars: START_STARS,
     perGo: cityPerGo(capital, 0),
     // Units in play: type = unit name, num = its number among units of that type.
-    army: [],
-    unitCounts: {},
+    army: [{ type: START_UNIT, num: 1, hp: UNIT_BY_NAME[START_UNIT].hp }],
+    unitCounts: { [START_UNIT]: 1 },
     go: 1,
     page: 0,
     // The first city is always the capital. cityCount numbers the cities you add.
@@ -296,16 +296,16 @@ function changeTribe(next) {
 }
 
 function newGame() {
-  if (!confirm("Start a new game? This clears your research and resets the tracker.")) {
-    return;
-  }
+  const ask = "Start a new game? This clears your research, cities and units. You start " +
+    `again with ${START_STARS} ★ and one ${START_UNIT}.`;
+  if (!confirm(ask)) return;
   const keep = { tribe: state.tribe, page: state.page };
   Object.assign(state, defaultState(), keep);
   saveState();
   bannerStars = state.stars;
   renderTree();
   renderStars();
-  toast("New game started");
+  toast(`New game: ${START_STARS} ★ and a ${START_UNIT}`);
 }
 
 // ---------- Research tree ----------
@@ -711,6 +711,7 @@ function renderRuins() {
   ).join("");
   document.getElementById("die").addEventListener("click", rollDie);
   document.getElementById("roll").addEventListener("click", rollDie);
+  document.getElementById("ruin-result").addEventListener("click", onRuinPick);
 }
 
 function showDie(face) {
@@ -756,9 +757,9 @@ function showRuinResult(face) {
 
   let body = "";
   if (outcome.kind === "unit") {
-    body = pickList(UNITS.filter((u) => u.cost !== null && u.cost <= RUIN_MAX_UNIT_COST));
+    body = unitPicks(UNITS.filter((u) => u.cost !== null && u.cost <= RUIN_MAX_UNIT_COST));
   } else if (outcome.kind === "building") {
-    body = pickList(BUILDINGS.filter((b) => b.cost !== null && b.cost <= RUIN_MAX_BUILDING_COST));
+    body = pickList(BUILDINGS.filter((b) => b.cost <= RUIN_MAX_BUILDING_COST));
   } else {
     body = `<button type="button" id="claim-stars" class="btn">` +
       `Add ${RUIN_STARS} ★ to my stars</button>`;
@@ -782,7 +783,32 @@ function showRuinResult(face) {
   }
 }
 
-// The units or buildings a ruin roll lets you choose from.
+// The units a ruin roll lets you choose from: tap one to put it in play, for free.
+function unitPicks(units) {
+  return (
+    `<p class="muted">Tap the unit you want:</p><div class="pick-list">` +
+    units.map(
+      (u) =>
+        `<button type="button" class="pick" data-ruin-unit="${u.name}">` +
+        `<span aria-hidden="true">${u.icon}</span> ${u.name}</button>`
+    ).join("") +
+    `</div>`
+  );
+}
+
+function onRuinPick(e) {
+  const btn = e.target.closest("[data-ruin-unit]");
+  if (!btn || btn.disabled) return;
+  const soldier = addUnit(btn.dataset.ruinUnit);
+  saveState();
+  renderArmy();
+  btn.classList.add("chosen");
+  btn.closest(".pick-list").querySelectorAll(".pick").forEach((b) => (b.disabled = true));
+  btn.closest(".pick-list").insertAdjacentHTML("afterend",
+    `<p class="ruin-added">${unitLabel(soldier)} added to your active units.</p>`);
+}
+
+// The buildings a ruin roll lets you choose from.
 function pickList(items) {
   return (
     `<p class="muted">Choose one:</p><div class="pick-list">` +

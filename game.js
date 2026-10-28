@@ -182,6 +182,10 @@ export const STARS_PER_GO_RULE =
 
 export const WIN_RULE = "Take over all the other tribes' cities.";
 
+// Every tribe starts the game with these stars and this unit.
+export const START_STARS = 5;
+export const START_UNIT  = "Warrior";
+
 // City upgrades: pop = population needed to reach the next level; pick one reward. The last
 // row repeats for every level from 5 up. perGo = stars per go the reward adds, stars = stars
 // it gives once, perAdjacent = stars per go for each adjacent building you count, pop =

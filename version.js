@@ -1,8 +1,16 @@
-export const VERSION = "v0.09";
+export const VERSION = "v0.10";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.10",
+    date: "2026-10-28",
+    notes: [
+      "Every tribe starts a new game with 5 stars and one Warrior.",
+      "Ruins: tap the unit you want and it joins your active units.",
+    ],
+  },
   {
     version: "v0.09",
     date: "2026-10-28",
