@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=Cinzel:wght@600;700&family=Uncial+Antiqua&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=0.08" />
+  <link rel="stylesheet" href="styles.css?v=0.09" />
 </head>
 <body>
   <section id="splash" class="splash" aria-label="Hex Tribes">
@@ -52,7 +52,8 @@
             <b>Build</b> or <b>Train</b> to pay for one.</li>
           <li>Your stars are always shown on the banner at the top.</li>
           <li><b>Ruins</b>: roll the die when you explore a ruin.</li>
-          <li><b>Tracker</b>: your stars, stars per go and super unit health.</li>
+          <li><b>Units</b>: the units you have in play, with their health, at the top.</li>
+          <li><b>Tracker</b>: your stars and stars per go.</li>
         </ul>
         <div id="home-version" class="home-version"></div>
       </section>
@@ -69,6 +70,8 @@
       </section>
 
       <section class="page" id="page-units" data-title="Units">
+        <h2>Active units</h2>
+        <div id="army" class="army"></div>
         <section class="rules">
           <h2>How combat works</h2>
           <ul id="combat-rules" class="rules-list"></ul>
@@ -110,6 +113,6 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="app.js?v=0.08" type="module"></script>
+  <script src="app.js?v=0.09" type="module"></script>
 </body>
 </html>

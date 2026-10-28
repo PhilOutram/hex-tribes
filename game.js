@@ -1,5 +1,5 @@
 // Game data, copied from the hand-drawn cardboard sheets: research tree, buildings table,
-// units table, star / super unit tracker and city level upgrades.
+// units table, star tracker and city level upgrades.
 
 // ink = text colour that reads clearly on top of the tribe colour; startTech = the inner ring
 // skill the tribe starts with, free. Oumaji's Riding is the Explorer branch here.
@@ -53,8 +53,8 @@ export const RESEARCH = [
   },
   {
     key: "climbing", name: "Climbing", icon: "🧗",
-    about: "Gives nothing to build on its own, but opens the mountain skills: Stone " +
-      "quarries, Mining and the Swordsman.",
+    about: "Your units can climb over iron mountains and stone mountains, so mountains " +
+      "stop blocking your way. It also opens Stone quarries, Mining and the Swordsman.",
     children: [
       { key: "quarry", name: "Stone quarry", icon: "🪨",
         about: "Build it next to your mines: each mine around it adds 2 population. It " +
@@ -185,7 +185,7 @@ export const WIN_RULE = "Take over all the other tribes' cities.";
 // City upgrades: pop = population needed to reach the next level; pick one reward. The last
 // row repeats for every level from 5 up. perGo = stars per go the reward adds, stars = stars
 // it gives once, perAdjacent = stars per go for each adjacent building you count, pop =
-// population it adds to the city.
+// population it adds to the city, unit = a unit it gives you.
 export const CITY_LEVELS = [
   { from: "City level 1", to: "City level 2", pop: 2, choices: [
     { name: "Workshop", icon: "🔨", text: `+${WORKSHOP_STARS} ★ per go`,
@@ -204,7 +204,8 @@ export const CITY_LEVELS = [
       pop: POPULATION_REWARD },
   ] },
   { from: "City level 4", to: "City level 5+", pop: 5, choices: [
-    { name: "Super Unit", icon: "🗿", text: `A Super Unit (${SUPER_UNIT_MAX_HP} HP)` },
+    { name: "Super Unit", icon: "🗿", text: `A Super Unit (${SUPER_UNIT_MAX_HP} HP)`,
+      unit: "Super Unit" },
     { name: "Park of fortune", icon: "🌳", text: `+${PARK_STARS} ★ per go`,
       perGo: PARK_STARS },
   ] },

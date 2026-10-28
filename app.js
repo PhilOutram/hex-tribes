@@ -1,12 +1,12 @@
 // Hex Tribes - splash screen, then seven swipeable reference pages: home (tribe colour),
 // research tree, buildings, units, ruins dice, star tracker and city levels.
-import { VERSION, CHANGELOG } from "./version.js?v=0.08";
+import { VERSION, CHANGELOG } from "./version.js?v=0.09";
 import {
   TRIBES, INNER_COST, OUTER_COST, RESEARCH, BUILDINGS, UNIT_STATS, UNITS,
-  SUPER_UNIT_MAX_HP, CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
+  CITY_LEVELS, DIE_FACES, RUIN_MAX_UNIT_COST, RUIN_MAX_BUILDING_COST,
   RUIN_STARS, RUIN_OUTCOMES, COMBAT_RULES, CITY_LEVEL_STARS, CAPITAL_EXTRA_STARS,
   STARS_PER_GO_RULE, WIN_RULE, GATEHOUSE_UPGRADE,
-} from "./game.js?v=0.08";
+} from "./game.js?v=0.09";
 
 // Register the service worker so the app is installable and works offline.
 // The relative path resolves correctly on the GitHub Pages /<slug>/ subpath.
@@ -70,6 +70,9 @@ const TOAST_ACTION_MS = 5000;
 const HOLD_MS = 450;
 const HOLD_SLOP_PX = 10;
 
+// A unit at or below this share of its health shows a red bar.
+const LOW_HEALTH_FRACTION = 0.5;
+
 // Every research skill by key, with its parent (inner ring skills have none) and cost.
 const NODES = {};
 RESEARCH.forEach((branch) => {
@@ -80,6 +83,7 @@ RESEARCH.forEach((branch) => {
 });
 const NODE_COUNT = Object.keys(NODES).length;
 const GATEHOUSE = BUILDINGS.find((b) => b.research === "gatehouse");
+const UNIT_BY_NAME = Object.fromEntries(UNITS.map((u) => [u.name, u]));
 
 const state = loadState();
 
@@ -103,6 +107,7 @@ document.getElementById("research-hint").innerHTML =
   `to research it, tap again to undo. <b>Hold</b> a skill to see what it gives you.`;
 renderBuildings();
 renderUnits();
+renderArmy();
 renderCombatRules();
 renderRuins();
 renderTracker();
@@ -124,6 +129,7 @@ document.getElementById("building-list").addEventListener("click", (e) => {
 document.getElementById("unit-list").addEventListener("click", (e) => {
   buyFrom(e, UNITS, "Trained");
 });
+document.getElementById("army").addEventListener("click", onArmyClick);
 document.getElementById("new-game").addEventListener("click", newGame);
 document.getElementById("my-cities").addEventListener("click", onCityClick);
 document.getElementById("add-city").addEventListener("click", addCity);
@@ -143,7 +149,9 @@ function defaultState() {
     researched: [],
     stars: 0,
     perGo: cityPerGo(capital, 0),
-    superHp: SUPER_UNIT_MAX_HP,
+    // Units in play: type = unit name, num = its number among units of that type.
+    army: [],
+    unitCounts: {},
     go: 1,
     page: 0,
     // The first city is always the capital. cityCount numbers the cities you add.
@@ -555,11 +563,13 @@ function buy(item, done) {
   if (!spend(item.cost, item.name)) return;
   const isGatehouse = item === GATEHOUSE;
   if (isGatehouse) state.gatehouses.push({ level: START_CITY_LEVEL, pop: 0 });
+  const soldier = UNITS.includes(item) ? addUnit(item.name) : null;
   saveState();
   renderStars();
   toast(`${done} ${item.name}: −${item.cost} ★`, "Undo", () => {
     state.stars += item.cost;
     if (isGatehouse) state.gatehouses.pop();
+    if (soldier) state.army = state.army.filter((s) => s !== soldier);
     saveState();
     renderStars();
     toast(`${item.name} undone: +${item.cost} ★`);
@@ -595,6 +605,87 @@ function renderUnits() {
       `<dl class="stats">${stats}</dl>${ability}${buyButton(u, i, "Train")}</div></article>`
     );
   }).join("");
+}
+
+// ---------- Active units ----------
+
+// Puts a unit in play at full health and returns it.
+function addUnit(type) {
+  state.unitCounts[type] = (state.unitCounts[type] || 0) + 1;
+  const soldier = { type, num: state.unitCounts[type], hp: UNIT_BY_NAME[type].hp };
+  state.army.push(soldier);
+  return soldier;
+}
+
+function removeLastUnit(type) {
+  const index = state.army.map((s) => s.type).lastIndexOf(type);
+  if (index >= 0) state.army.splice(index, 1);
+}
+
+function unitLabel(soldier) {
+  return `${soldier.type} ${soldier.num}`;
+}
+
+function renderArmy() {
+  const rows = state.army.map((s, i) => {
+    const unit = UNIT_BY_NAME[s.type];
+    const fraction = s.hp / unit.hp;
+    const health = fraction >= 1 ? "full" : fraction > LOW_HEALTH_FRACTION ? "hurt" : "low";
+    return (
+      `<div class="soldier ${health}" data-unit="${i}">` +
+      `<span class="unit-icon" aria-hidden="true">${unit.icon}</span>` +
+      `<div class="soldier-hp"><b>${unitLabel(s)}</b><div class="hp-line">` +
+      `<div class="hp-bar"><div class="hp-fill" style="width: ${fraction * 100}%"></div>` +
+      `</div><span><b>${s.hp}</b>/${unit.hp}</span></div></div>` +
+      `<button type="button" class="step small" data-act="hp" data-step="-1" ` +
+      `aria-label="${unitLabel(s)} loses 1 health">−</button>` +
+      `<button type="button" class="step small" data-act="hp" data-step="1" ` +
+      `aria-label="${unitLabel(s)} gains 1 health">+</button>` +
+      `<button type="button" class="chip-btn" data-act="remove" ` +
+      `aria-label="Remove ${unitLabel(s)}">✕</button></div>`
+    );
+  });
+  const empty = `<p class="muted">No units in play yet. Training a unit below adds it here.</p>`;
+  const adds = UNITS.map(
+    (u) =>
+      `<button type="button" class="chip-btn" data-add="${u.name}">` +
+      `<span aria-hidden="true">${u.icon}</span> ${u.name}</button>`
+  ).join("");
+  document.getElementById("army").innerHTML =
+    (rows.length ? rows.join("") : empty) +
+    `<p class="muted add-label">Add a unit for free (start of the game, ruins, rewards):</p>` +
+    `<div class="add-units">${adds}</div>`;
+}
+
+function onArmyClick(e) {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  if (btn.dataset.add) {
+    const soldier = addUnit(btn.dataset.add);
+    saveState();
+    renderArmy();
+    toast(`${unitLabel(soldier)} added`);
+    return;
+  }
+  const index = Number(btn.closest(".soldier").dataset.unit);
+  const soldier = state.army[index];
+  const max = UNIT_BY_NAME[soldier.type].hp;
+  if (btn.dataset.act === "hp") {
+    soldier.hp = Math.min(max, soldier.hp + Number(btn.dataset.step));
+  }
+  // At 0 health, or removed by hand, the unit leaves play - with Undo in case of a slip.
+  if (btn.dataset.act === "remove" || soldier.hp <= 0) {
+    const fallen = soldier.hp <= 0;
+    soldier.hp = Math.max(soldier.hp, 1);
+    state.army.splice(index, 1);
+    toast(`${unitLabel(soldier)} ${fallen ? "has fallen" : "removed"}`, "Undo", () => {
+      state.army.splice(Math.min(index, state.army.length), 0, soldier);
+      saveState();
+      renderArmy();
+    });
+  }
+  saveState();
+  renderArmy();
 }
 
 function renderCombatRules() {
@@ -708,7 +799,6 @@ function pickList(items) {
 
 function renderTracker() {
   const box = document.getElementById("tracker");
-  const hpPct = (state.superHp / SUPER_UNIT_MAX_HP) * 100;
   box.innerHTML =
     `<section class="counter">` +
     `<h2>Stars I own</h2>${counterRow("stars", state.stars, "★")}` +
@@ -721,12 +811,7 @@ function renderTracker() {
     `<section class="counter"><h2>Stars per go</h2>${counterRow("perGo", state.perGo, "★")}` +
     `</section>` +
     `<button type="button" class="btn big" data-action="next-go">` +
-    `End go ${state.go}: collect +${state.perGo} ★</button>` +
-    `<section class="counter"><h2>Super unit health</h2>` +
-    counterRow("superHp", state.superHp, `/ ${SUPER_UNIT_MAX_HP}`) +
-    `<div class="hp-bar"><div class="hp-fill" style="width: ${hpPct}%"></div></div>` +
-    `<button type="button" class="btn small" data-action="heal">` +
-    `Full health (${SUPER_UNIT_MAX_HP})</button></section>`;
+    `End go ${state.go}: collect +${state.perGo} ★</button>`;
 
   box.onclick = (e) => {
     const btn = e.target.closest("button");
@@ -737,8 +822,6 @@ function renderTracker() {
       state.stars += state.perGo;
       state.go += 1;
       toast(`+${state.perGo} ★ - now ${state.stars} ★`);
-    } else if (btn.dataset.action === "heal") {
-      state.superHp = SUPER_UNIT_MAX_HP;
     }
     saveState();
     renderStars();
@@ -757,13 +840,12 @@ function counterRow(field, value, unit) {
 }
 
 function changeCounter(field, step) {
-  const max = field === "superHp" ? SUPER_UNIT_MAX_HP : Infinity;
   const next = state[field] + step;
   if (next < 0) {
     if (field === "stars") toast(`Not enough stars - you have ${state.stars} ★`);
     return;
   }
-  state[field] = Math.min(next, max);
+  state[field] = next;
 }
 
 // Takes the cost off your stars. If you can't afford it, says so and returns false.
@@ -797,6 +879,7 @@ function renderStars() {
   renderBanner();
   renderBuildings();
   renderUnits();
+  renderArmy();
   renderCities();
 }
 
@@ -909,6 +992,9 @@ function onCityClick(e) {
       const after = before === choice ? null : choice;
       const popOf = (pick) => (pick === null ? 0 : choices[pick].pop || 0);
       c.pop = Math.max(0, c.pop + popOf(after) - popOf(before));
+      // A reward that gives a unit (Super Unit) adds it to your units, or takes it away.
+      if (before !== null && choices[before].unit) removeLastUnit(choices[before].unit);
+      if (after !== null && choices[after].unit) addUnit(choices[after].unit);
       c.picks[slot] = after;
     });
   } else if (act === "adjacent") {

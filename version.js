@@ -1,8 +1,17 @@
-export const VERSION = "v0.08";
+export const VERSION = "v0.09";
 
 // Newest first. Bump VERSION and prepend an entry on EVERY publish, so the live
 // app always shows exactly what shipped. Dates are YYYY-MM-DD.
 export const CHANGELOG = [
+  {
+    version: "v0.09",
+    date: "2026-10-28",
+    notes: [
+      "Active units at the top of the Units page, each with a health counter.",
+      "The Super Unit is tracked there too (a city's Super Unit reward adds one).",
+      "Climbing: units can climb over iron and stone mountains.",
+    ],
+  },
   {
     version: "v0.08",
     date: "2026-10-28",

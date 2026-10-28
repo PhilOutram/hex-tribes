@@ -11,6 +11,9 @@
   --edge: #9b7a45;
   --ink: #2b1d0e;
   --muted: #6d5536;
+  --healthy: #3f8f3a;
+  --hurt: #d98a1c;
+  --wound: #b3261e;
   --tribe: #2a6fd6;
   --tribe-ink: #fff;
   --title-font: "Cinzel", Georgia, serif;
@@ -1288,6 +1291,66 @@ h3 {
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
+}
+
+/* ---------- Active units ---------- */
+.soldier {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  background-color: var(--paper-light);
+  line-height: 1.25;
+}
+
+.unit-icon {
+  font-size: 1.6rem;
+}
+
+.soldier-hp {
+  min-width: 0;
+  font-size: 0.92rem;
+}
+
+.hp-line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hp-line .hp-bar {
+  margin-top: 0;
+}
+
+/* Health colours, the same whatever the tribe colour: green, amber when hurt, red when low. */
+.soldier.full .hp-fill {
+  background-color: var(--healthy);
+}
+
+.soldier.hurt .hp-fill {
+  background-color: var(--hurt);
+}
+
+.soldier.low .hp-fill {
+  background-color: var(--wound);
+}
+
+.add-label {
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+.add-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 /* ---------- Toast ---------- */
